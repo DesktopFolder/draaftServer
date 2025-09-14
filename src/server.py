@@ -3,7 +3,7 @@ import time
 from typing import Any, Callable, Coroutine
 
 import jwt
-from fastapi import FastAPI, Request, Response, status
+from fastapi import FastAPI, Request, Response, WebSocketDisconnect, status, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import PlainTextResponse
 
@@ -16,11 +16,16 @@ from models.generic import LoggedInUser, MojangInfo
 from models.room import (Room, RoomIdentifier, RoomJoinError, RoomJoinState,
                          RoomResult)
 from utils import get_user_from_request, validate_mojang_session
+import sys
 
 setup_sqlite()
 
 JWT_SECRET = secrets.token_urlsafe(32)
 JWT_ALGORITHM = "HS256"
+DEV_MODE_NO_AUTHENTICATE = True
+
+if DEV_MODE_NO_AUTHENTICATE and 'dev' not in sys.argv:
+    raise RuntimeError(f'Do not deploy without setting dev mode to False!')
 
 # https://pyjwt.readthedocs.io/en/stable/
 # https://sessionserver.mojang.com/session/minecraft/hasJoined?username=DesktopFolder&serverId=draaft2025server
@@ -30,6 +35,14 @@ app = FastAPI()
 
 
 ################## Middlewares #####################
+
+
+def token_to_user(token: str) -> LoggedInUser:
+    payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+    user = db.get_user(username=payload["username"], uuid=payload["uuid"])
+    if user is None:
+        raise RuntimeError('could not make user')
+    return user
 
 
 @app.middleware("http")
@@ -46,16 +59,17 @@ async def check_valid(request: Request, call_next):
     if request.url.path not in public_routes:
         token = request.headers.get("token")
         if not token:
-            return PlainTextResponse("bad request, sorry mate", status_code=403)
+            return PlainTextResponse("bad request, sorry mate :/", status_code=403)
         try:
-            payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+            user = token_to_user(token)
         except jwt.ExpiredSignatureError:
-            return PlainTextResponse("token expired", status_code=403)
+            return PlainTextResponse("token expired...", status_code=403)
         except jwt.InvalidTokenError:
-            return PlainTextResponse("invalid token", status_code=403)
+            return PlainTextResponse("invalid token >:|", status_code=403)
+        except RuntimeError:
+            return PlainTextResponse("server error :(", status_code=500)
         request.state.valid_token = token
-        request.state.logged_in_user = db.get_user(
-            username=payload["username"], uuid=payload["uuid"])
+        request.state.logged_in_user = user
 
     return await call_next(request)
 
@@ -70,26 +84,48 @@ app.add_middleware(
 
 ################### Routes #####################
 
-@app.post("/authenticate")
-async def authenticate(mi: MojangInfo) -> AuthenticationResult:
-    result = await validate_mojang_session(mi.username, mi.serverID)
-    if not result["success"]:
-        return AuthenticationFailure(message=result["error"])
-    resp_data = result["data"]
+if DEV_MODE_NO_AUTHENTICATE:
+    @app.get("/authenticate")
+    async def authenticate_no_auth(uuid: str|None = None, username: str|None = None) -> AuthenticationResult:
+        if uuid is None:
+            # Look, it's simple and easy
+            uuid = 'uuid1a52730a4b4dadb7d1ea6' + rooms.generate_code()
+        if username is None:
+            username = 'tester' + rooms.generate_code()
+        # JWT payload
+        payload = {
+            "username": username,
+            "uuid": uuid,
+            "serverID": 'draafttestserver',
+            "iat": int(time.time()),
+            "exp": int(time.time()) + 60 * 60 * 24  # 24 hours expiry
+        }
 
-    # JWT payload
-    payload = {
-        "username": resp_data['name'],
-        "uuid": resp_data['id'],
-        "serverID": mi.serverID,
-        "iat": int(time.time()),
-        "exp": int(time.time()) + 60 * 60 * 24  # 24 hours expiry
-    }
+        token = jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
+        # add user to db if not exists
+        insert_user(username=payload['username'], uuid=payload['uuid'])
+        return AuthenticationSuccess(token=token)
+else:
+    @app.post("/authenticate")
+    async def authenticate(mi: MojangInfo) -> AuthenticationResult:
+        result = await validate_mojang_session(mi.username, mi.serverID)
+        if not result["success"]:
+            return AuthenticationFailure(message=result["error"])
+        resp_data = result["data"]
 
-    token = jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
-    # add user to db if not exists
-    insert_user(username=resp_data['name'], uuid=resp_data['id'])
-    return AuthenticationSuccess(token=token)
+        # JWT payload
+        payload = {
+            "username": resp_data['name'],
+            "uuid": resp_data['id'],
+            "serverID": mi.serverID,
+            "iat": int(time.time()),
+            "exp": int(time.time()) + 60 * 60 * 24  # 24 hours expiry
+        }
+
+        token = jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
+        # add user to db if not exists
+        insert_user(username=resp_data['name'], uuid=resp_data['id'])
+        return AuthenticationSuccess(token=token)
 
 
 @app.get("/authenticated")
@@ -116,11 +152,14 @@ async def handle_room_rejoin(user: LoggedInUser, cb: Callable[[], Coroutine[Any,
 async def get_room(request: Request, response: Response) -> Room | APIError:
     print("Getting room for user...")
     user = get_user_from_request(request)
+    assert user
     print(f"Got user: {user}")
+    if user.room_code is None:
+        return api_error(APIError(error_message="no room code found for user"), response, status.HTTP_404_NOT_FOUND)
     room = rooms.get_room_from_code(user.room_code)
     print(f"Got room: {room}")
     if room is None:
-        return api_error(APIError(error_message="no room found for user"), response, status.HTTP_404_NOT_FOUND)
+        return api_error(APIError(error_message="no room found for user's room code"), response, status.HTTP_404_NOT_FOUND)
     return room
 
 
@@ -129,6 +168,7 @@ async def create_room(request: Request) -> RoomResult:
     # The user must be authenticated to get this.
     # Only create a room if the user is not already joined to a room.
     user = get_user_from_request(request)
+    assert user
     rejoin_result = await handle_room_rejoin(user, lambda: create_room(request))
     if rejoin_result is not None:
         return rejoin_result
@@ -139,6 +179,7 @@ async def create_room(request: Request) -> RoomResult:
 @app.post("/room/join")
 async def join_room(request: Request, response: Response, room_code: RoomIdentifier) -> RoomResult | RoomJoinError:
     user = get_user_from_request(request)
+    assert user
     rejoin_result = await handle_room_rejoin(user, lambda: create_room(request))
     if rejoin_result is not None:
         return rejoin_result
@@ -154,8 +195,31 @@ async def join_room(request: Request, response: Response, room_code: RoomIdentif
 
 
 @app.get("/user")
-async def get_user(request: Request, response: Response) -> LoggedInUser:
+async def get_user(request: Request, response: Response) -> LoggedInUser | APIError:
     user = get_user_from_request(request)
     if user is None:
-        return api_error(APIErrorType(message="Could not find user"), response)
+        return api_error(APIError(error_message="Could not find user"), response)
     return user
+
+@app.websocket("/listen")
+async def websocket_endpoint(
+    *,
+    websocket: WebSocket,
+    token: str    
+):
+    print('Got a connect / listen call with a websocket')
+    user = token_to_user(token)
+    full_user = db.populated_user(user)
+    # Sane maximum
+    if full_user.state.connections >= 10:
+        raise RuntimeError("Max connections exceeded")
+    # Do not increase connections until accept() succeeds
+    await websocket.accept()
+    full_user.state.connections += 1
+    try:
+        while True:
+            data = await websocket.receive_text()
+            print(data)
+            await websocket.send_text('yeah got ur message' + data)
+    except WebSocketDisconnect:
+        pass
