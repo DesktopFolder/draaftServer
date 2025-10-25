@@ -30,3 +30,10 @@ class RoomResult(RoomIdentifier):
 
 class RoomJoinError(APIError):
     pass
+
+
+# This is the class we receive and also broadcast
+class RoomConfig(BaseModel):
+    enforce_timer: bool = False
+    pick_time: int = 15
+    # spectators_get_world: bool = False

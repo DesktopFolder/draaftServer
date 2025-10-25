@@ -1,6 +1,8 @@
 from pydantic import BaseModel, Field, ValidationError
-from typing import Literal, Union
+from typing import Literal, TypeVar, Union, Type
 from enum import Enum
+
+from models.room import RoomConfig
 
 """
 Client -> Server:
@@ -43,10 +45,12 @@ class PlayerUpdate(BaseModel):
 
 class RoomUpdateEnum(str, Enum):
     closed = 'closed'
+    config = 'config'
 
 class RoomUpdate(BaseModel):
     variant: Literal['roomupdate'] = 'roomupdate'
     update: RoomUpdateEnum
+    config: RoomConfig | None = None
 
 class RoomStatus(BaseModel):
     variant: Literal['roomdata'] = 'roomdata'
@@ -72,3 +76,11 @@ class WebSocketMessage(BaseModel):
 
 def serialize(rs: BaseModel):
     return rs.model_dump_json()
+
+DeserializeType = TypeVar('DeserializeType')
+def deserialize(js: str, deserialize_type: Type[DeserializeType]) -> DeserializeType | None:
+    import json
+    try:
+        return deserialize_type(**json.loads(js))
+    except Exception:
+        return None

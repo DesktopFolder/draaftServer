@@ -1,0 +1,4 @@
+- add main area
+- add start button
+- add settings object for the room
+- add draft window

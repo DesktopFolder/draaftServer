@@ -16,7 +16,7 @@ from db import PopulatedUser, get_admin_from_request, get_populated_user_from_re
 from models.api import (APIError, APIErrorType, AuthenticationFailure,
                         AuthenticationResult, AuthenticationSuccess, api_error)
 from models.generic import LoggedInUser, MojangInfo
-from models.room import (Room, RoomIdentifier, RoomJoinError, RoomJoinState,
+from models.room import (Room, RoomConfig, RoomIdentifier, RoomJoinError, RoomJoinState,
                          RoomResult)
 from models.ws import PlayerActionEnum, PlayerUpdate, RoomUpdate, RoomUpdateEnum, WebSocketMessage, serialize
 from utils import get_user_from_request, validate_mojang_session
@@ -26,8 +26,9 @@ setup_sqlite()
 
 JWT_SECRET = secrets.token_urlsafe(32)
 JWT_ALGORITHM = "HS256"
-DEV_MODE_NO_AUTHENTICATE = False
-DEV_MODE_WEIRD_ENDPOINTS = True
+ALLOW_DEV = 'dev' in sys.argv
+DEV_MODE_NO_AUTHENTICATE = False and ALLOW_DEV
+DEV_MODE_WEIRD_ENDPOINTS = True and ALLOW_DEV
 
 if DEV_MODE_WEIRD_ENDPOINTS and 'dev' not in sys.argv:
     raise RuntimeError(f'Do not deploy without setting dev mode to False!')
@@ -56,18 +57,21 @@ def token_to_user(token: str) -> LoggedInUser:
     return user
 
 
+PUBLIC_ROUTES = {
+    "/",
+    "/authenticate",
+    "/version",
+}
+if 'dev' in sys.argv:
+    PUBLIC_ROUTES.add("/docs")
+    PUBLIC_ROUTES.add("/openapi.json")
+
+
 @app.middleware("http")
 async def check_valid(request: Request, call_next):
     request.state.valid_token = None
 
-    public_routes = {
-        '/',
-        '/authenticate',
-        "/docs",
-        "/openapi.json",
-    }
-
-    if request.url.path not in public_routes:
+    if request.url.path not in PUBLIC_ROUTES:
         token = request.headers.get("token")
         if not token:
             return PlainTextResponse("bad request, sorry mate :/", status_code=403)
@@ -84,9 +88,14 @@ async def check_valid(request: Request, call_next):
 
     return await call_next(request)
 
+if 'dev' in sys.argv:
+    allow_origins = ('*')
+else:
+    allow_origins = ('https://disrespec.tech', 'https://api.disrespec.tech')
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=('*'),
+    allow_origins=allow_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -145,8 +154,12 @@ else:
 async def is_authenticated():
     return True
 
+@app.get("/version")
+async def server_version():
+    return 1 # Version 1 until public beta
 
-async def handle_room_rejoin(user: LoggedInUser, cb: Callable[[], Coroutine[Any, Any, RoomResult]]) -> RoomResult | None:
+
+async def handle_room_rejoin(user: LoggedInUser, cb: Callable[[], Coroutine[Any, Any, RoomResult]] | None) -> RoomResult | None:
     if user.room_code is not None:
         LOG("User had room code...")
         room = rooms.get_room_from_code(user.room_code)
@@ -154,7 +167,12 @@ async def handle_room_rejoin(user: LoggedInUser, cb: Callable[[], Coroutine[Any,
             # Handle room timeout / deletion
             LOG("...Room was timed out.")
             user.room_code = None
-            return await cb()
+            # Update this in the DB as well.
+            db.cur.execute(f"UPDATE users SET room_code = NULL WHERE uuid IN (?)", (user.uuid,))
+            db.DB.commit()
+            if cb is not None:
+                return await cb()
+            return None
         # if user.uuid in room.members:
         #     return None  # User is still in room. Shouldn't happen, but just in case
         if user.uuid == room.admin:
@@ -197,7 +215,7 @@ async def create_room(request: Request) -> RoomResult:
 async def join_room(request: Request, response: Response, room_code: RoomIdentifier) -> RoomResult | RoomJoinError:
     user = get_user_from_request(request)
     assert user
-    rejoin_result = await handle_room_rejoin(user, lambda: create_room(request))
+    rejoin_result = await handle_room_rejoin(user, None)
     if rejoin_result is not None:
         LOG("Got rejoin result:", rejoin_result)
         return rejoin_result
@@ -211,6 +229,8 @@ async def join_room(request: Request, response: Response, room_code: RoomIdentif
     if not addUserAttempt:
         # At some point we might want to differentiate these errors (i.e. room full vs other)
         return api_error(RoomJoinError(error_message=f"could not add user to room: {room_code.code}"), response)
+    await mg.broadcast_room(room, PlayerUpdate(uuid=user.uuid, action=PlayerActionEnum.joined))
+    room.members.add(user.uuid)
     return RoomResult(code=room_code.code, state=RoomJoinState.joined, members=list(room.members))
 
 
@@ -259,7 +279,7 @@ async def kick_room(request: Request, member: str):
     rooms.remove_room_member(member)
 
 @app.post("/room/swapstatus")
-async def kick_room(request: Request, uuid: str):
+async def swap_status(request: Request, uuid: str):
     ad = get_admin_from_request(request)
     if ad is None:
         return
@@ -280,6 +300,15 @@ async def kick_room(request: Request, uuid: str):
     insert_update_status(uuid, status)
 
 
+@app.post("/room/configure")
+async def configure_room(request: Request, config: RoomConfig):
+    ad = get_admin_from_request(request)
+    if ad is None:
+        return
+    _, r = ad
+    await mg.update_room(r, config)
+
+
 class RoomManager:
     def __init__(self):
         self.users: defaultdict[str, set[WebSocket]] = defaultdict(lambda: set())
@@ -295,6 +324,7 @@ class RoomManager:
         for m in room.members:
             wso = self.users.get(m)
             if wso is None:
+                LOG("No websockets found for user", m)
                 continue
             for ws in wso:
                 await ws.send_text(ser)
@@ -304,12 +334,18 @@ class RoomManager:
 
     async def add_user(self, room: Room, user: str):
         if not rooms.add_room_member(room.code, user):
+            LOG("Failed adding user", user, "to room", room.code)
             return False
+        LOG("Broadcasting room", room.code, "notice that player", user, "joined.")
         await self.broadcast_room(room, PlayerUpdate(uuid=user, action=PlayerActionEnum.joined))
         return True
 
     async def update_status(self, room: Room, user: str, status: PlayerActionEnum):
         await self.broadcast_room(room, PlayerUpdate(uuid=user, action=status))
+
+    async def update_room(self, room: Room, c: RoomConfig):
+        # Update the db first, then send the update, I guess
+        await self.broadcast_room(room, RoomUpdate(update=RoomUpdateEnum.config, config=c))
 
     async def send_join(self, ws: WebSocket, room: Room):
         # Send any information that wasn't initially sent.
@@ -335,7 +371,7 @@ async def websocket_endpoint(
     token: str    
 ):
     from handlers import handle_websocket_message
-    print('Got a connect / listen call with a websocket')
+    LOG('Got a connect / listen call with a websocket')
     user = token_to_user(token)
     full_user = db.populated_user(user)
     room = full_user.get_room()
@@ -343,7 +379,7 @@ async def websocket_endpoint(
         return # User must be in a room to be listening for updates.
     # Sane maximum
     if full_user.state.connections >= 10:
-        raise RuntimeError("Max connections exceeded")
+        raise RuntimeError(f"Max connections exceeded for user {user.username}")
     # Do not increase connections until accept() succeeds
     await websocket.accept()
     full_user.state.connections += 1

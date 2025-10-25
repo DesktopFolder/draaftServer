@@ -18,7 +18,8 @@ def setup_sqlite():
         CREATE TABLE IF NOT EXISTS rooms (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             code char(7) UNIQUE,
-            admin char(32)
+            admin char(32),
+            config VARCHAR
         );
     """)
 
