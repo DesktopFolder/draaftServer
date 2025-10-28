@@ -46,6 +46,7 @@ class PlayerUpdate(BaseModel):
 class RoomUpdateEnum(str, Enum):
     closed = 'closed'
     config = 'config'
+    commenced = 'commenced'
 
 class RoomUpdate(BaseModel):
     variant: Literal['roomupdate'] = 'roomupdate'

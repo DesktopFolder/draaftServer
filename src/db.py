@@ -5,7 +5,7 @@ from models.generic import LoggedInUser
 from typing import Any, DefaultDict
 
 from models.room import Room
-from utils import get_user_from_request
+from utils import LOG, get_user_from_request
 
 DB = sqlite3.connect("./db/draaft.db")
 cur = DB.cursor()
@@ -17,17 +17,18 @@ def setup_sqlite():
     cur.execute("""
         CREATE TABLE IF NOT EXISTS rooms (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            code char(7) UNIQUE,
-            admin char(32),
-            config VARCHAR
+            code char(7) UNIQUE NOT NULL,
+            admin char(32) NOT NULL,
+            config VARCHAR DEFAULT '{}',
+            draft VARCHAR
         );
     """)
 
     cur.execute("""
         CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            uuid char(32) UNIQUE,
-            username char(32),
+            uuid char(32) UNIQUE NOT NULL,
+            username char(32) NOT NULL,
             room_code char(7) references rooms(code)
         );
     """)
@@ -35,8 +36,8 @@ def setup_sqlite():
     cur.execute("""
         CREATE TABLE IF NOT EXISTS status (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            uuid char(32) UNIQUE,
-            status char(32)
+            uuid char(32) UNIQUE NOT NULL,
+            status char(32) NOT NULL
         );
     """)
 
@@ -64,18 +65,21 @@ def insert_user(username: str, uuid: str) -> bool:
         cur.execute("INSERT INTO users (uuid, username) VALUES (?,?)",
                     (uuid, username))
         DB.commit()
+        LOG("Created new user with username", username)
         return True
-    except sqlite3.IntegrityError:
+    except sqlite3.IntegrityError as e:
         # UUID already exists
         # TODO: Should this also update usernames? I don't think it really matters
+        LOG("Failed insert_user with error:", e)
         return False
 
 def insert_update_status(uuid: str, status: str):
     try:
         cur.execute("INSERT INTO status (uuid, status) VALUES (?,?)", (uuid, status))
         DB.commit()
-    except sqlite3.IntegrityError:
+    except sqlite3.IntegrityError as e:
         # update instead
+        LOG("Failed insert_update_status with error:", e)
         cur.execute("UPDATE status SET status = ? WHERE uuid = ?", (status, uuid))
         DB.commit()
 

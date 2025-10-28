@@ -1,10 +1,9 @@
-from db import cur
 import string
 import random
 from sqlite3 import IntegrityError
 
-from models.room import Room
-from db import DB
+from models.room import Room, RoomConfig
+from models.ws import deserialize
 
 
 def generate_code() -> str:
@@ -14,6 +13,7 @@ def generate_code() -> str:
 
 # Returns a room code and creates the room :)
 def create(uuid: str) -> str:
+    from db import DB, cur
     while True:
         room_code = generate_code()
         try:
@@ -30,6 +30,7 @@ def create(uuid: str) -> str:
 
 
 def get_room_from_code(room_code: str) -> Room | None:
+    from db import cur
     """ Returns a Room object from a room code, or None if not found """
     if not room_code:
         return None
@@ -43,10 +44,27 @@ def get_room_from_code(room_code: str) -> Room | None:
         "SELECT uuid FROM users WHERE room_code = ?", (room_code,)).fetchall()
     members = set(m[0] for m in members_res)
     room_code = str(room_code) if room_code is not None else ""
-    return Room(code=room_code, members=members, admin=admin)
+    rc = deserialize(res[0][3], RoomConfig)
+    if rc is None:
+        print("ERROR: Could not deserialize room config:", res[0][3])
+        rc = RoomConfig()
+    return Room(code=room_code, members=members, admin=admin, config=rc)
+
+
+def update_config(config: str, code: str) -> bool:
+    from db import DB, cur
+    """ Adds a user to a room by room code. Returns True on success, False on failure (room not found or other db issue) """
+    try:
+        cur.execute("UPDATE rooms SET config = ? WHERE code = ?",
+                    (config, code))
+        DB.commit()
+        return True
+    except IntegrityError:
+        return False
 
 
 def add_room_member(room_code: str, uuid: str) -> bool:
+    from db import DB, cur
     """ Adds a user to a room by room code. Returns True on success, False on failure (room not found or other db issue) """
     try:
         cur.execute("UPDATE users SET room_code = ? WHERE uuid = ?",
@@ -58,6 +76,7 @@ def add_room_member(room_code: str, uuid: str) -> bool:
 
 
 def remove_room_member(uuid: str) -> bool:
+    from db import DB, cur
     """
     If a room member is the admin, we must destroy the room.
     """
@@ -81,6 +100,7 @@ def remove_room_member(uuid: str) -> bool:
 
 
 def get_user_room_code(uuid: str) -> str | None:
+    from db import cur
     """ Returns the room code the user is in, or None if not in a room """
     res = cur.execute("SELECT room_code FROM users WHERE uuid = ?",
                       (uuid,)).fetchall()

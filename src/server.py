@@ -1,30 +1,28 @@
-from collections import defaultdict
-from random import random, choice
-import secrets
+from random import choice
 import time
 from typing import Any, Callable, Coroutine
 
 import jwt
-from fastapi import FastAPI, Request, Response, WebSocketDisconnect, status, WebSocket
+from fastapi import Body, FastAPI, Request, Response, WebSocketDisconnect, status, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import PlainTextResponse
-from pydantic import BaseModel
 
 import db
 import rooms
-from db import PopulatedUser, get_admin_from_request, get_populated_user_from_request, get_user_status, insert_update_status, insert_user, populated_user, setup_sqlite
-from models.api import (APIError, APIErrorType, AuthenticationFailure,
+from db import get_admin_from_request, get_user_status, insert_update_status, insert_user, setup_sqlite
+from models.api import (APIError, AuthenticationFailure,
                         AuthenticationResult, AuthenticationSuccess, api_error)
 from models.generic import LoggedInUser, MojangInfo
-from models.room import (Room, RoomConfig, RoomIdentifier, RoomJoinError, RoomJoinState,
+from models.room import (Room, RoomIdentifier, RoomJoinError, RoomJoinState,
                          RoomResult)
 from models.ws import PlayerActionEnum, PlayerUpdate, RoomUpdate, RoomUpdateEnum, WebSocketMessage, serialize
-from utils import get_user_from_request, validate_mojang_session
+from utils import get_user_from_request, validate_mojang_session, LOG, persistent_token
 import sys
+from room_manager import mg
 
 setup_sqlite()
 
-JWT_SECRET = secrets.token_urlsafe(32)
+JWT_SECRET = persistent_token(32, 'JWT_SECRET')
 JWT_ALGORITHM = "HS256"
 ALLOW_DEV = 'dev' in sys.argv
 DEV_MODE_NO_AUTHENTICATE = False and ALLOW_DEV
@@ -34,10 +32,6 @@ if DEV_MODE_WEIRD_ENDPOINTS and 'dev' not in sys.argv:
     raise RuntimeError(f'Do not deploy without setting dev mode to False!')
 if DEV_MODE_NO_AUTHENTICATE and 'dev' not in sys.argv:
     raise RuntimeError(f'Do not deploy without setting dev mode to False!')
-
-def nolog(*_, **__):
-    pass
-LOG = print
 
 # https://pyjwt.readthedocs.io/en/stable/
 # https://sessionserver.mojang.com/session/minecraft/hasJoined?username=DesktopFolder&serverId=draaft2025server
@@ -81,7 +75,8 @@ async def check_valid(request: Request, call_next):
             return PlainTextResponse("token expired...", status_code=403)
         except jwt.InvalidTokenError:
             return PlainTextResponse("invalid token >:|", status_code=403)
-        except RuntimeError:
+        except RuntimeError as e:
+            print(e)
             return PlainTextResponse("server error :(", status_code=500)
         request.state.valid_token = token
         request.state.logged_in_user = user
@@ -223,7 +218,7 @@ async def join_room(request: Request, response: Response, room_code: RoomIdentif
     room = rooms.get_room_from_code(room_code.code)
     if room is None:
         return api_error(RoomJoinError(error_message=f"no such room: {room_code.code}"), response)
-    # User can join this room!
+    # User can join this room! room room room room HAAHAHAAHA TAKE THAT YOU ROOMS
     user.room_code = room_code.code
     addUserAttempt = rooms.add_room_member(room_code.code, user.uuid)
     if not addUserAttempt:
@@ -301,60 +296,34 @@ async def swap_status(request: Request, uuid: str):
 
 
 @app.post("/room/configure")
-async def configure_room(request: Request, config: RoomConfig):
+async def configure_room(request: Request, payload: Any = Body(None)):
     ad = get_admin_from_request(request)
     if ad is None:
         return
     _, r = ad
-    await mg.update_room(r, config)
+
+    if payload is None:
+        LOG("Got empty payload for /room/configure")
+        return
+
+    if not isinstance(payload, dict):
+        LOG("Got weird type", type(payload), "for /room/configure")
+        return
+
+    new_config = r.config.merge_config(payload)
+
+    rooms.update_config(code=r.code, config=serialize(new_config))
+    await mg.update_room(r, new_config)
 
 
-class RoomManager:
-    def __init__(self):
-        self.users: defaultdict[str, set[WebSocket]] = defaultdict(lambda: set())
-
-    def subscribe(self, websocket: WebSocket, user: PopulatedUser):
-        self.users[user.uuid].add(websocket)
-
-    def unsubscribe(self, websocket: WebSocket, user: PopulatedUser):
-        self.users[user.uuid].remove(websocket)
-
-    async def broadcast_room(self, room: Room, data: BaseModel):
-        ser = serialize(data)
-        for m in room.members:
-            wso = self.users.get(m)
-            if wso is None:
-                LOG("No websockets found for user", m)
-                continue
-            for ws in wso:
-                await ws.send_text(ser)
-
-    async def send_ws(self, ws: WebSocket, data: BaseModel):
-        await ws.send_text(serialize(data))
-
-    async def add_user(self, room: Room, user: str):
-        if not rooms.add_room_member(room.code, user):
-            LOG("Failed adding user", user, "to room", room.code)
-            return False
-        LOG("Broadcasting room", room.code, "notice that player", user, "joined.")
-        await self.broadcast_room(room, PlayerUpdate(uuid=user, action=PlayerActionEnum.joined))
-        return True
-
-    async def update_status(self, room: Room, user: str, status: PlayerActionEnum):
-        await self.broadcast_room(room, PlayerUpdate(uuid=user, action=status))
-
-    async def update_room(self, room: Room, c: RoomConfig):
-        # Update the db first, then send the update, I guess
-        await self.broadcast_room(room, RoomUpdate(update=RoomUpdateEnum.config, config=c))
-
-    async def send_join(self, ws: WebSocket, room: Room):
-        # Send any information that wasn't initially sent.
-        for m in room.members:
-            if get_user_status(m) != "player":
-                await self.send_ws(ws, PlayerUpdate(uuid=m, action=PlayerActionEnum.spectate))
-
-
-mg = RoomManager()
+@app.post("/room/commence")
+async def commence_room(request: Request):
+    ad = get_admin_from_request(request)
+    if ad is None:
+        return
+    _, r = ad
+    
+    await mg.broadcast_room(r, RoomUpdate(update=RoomUpdateEnum.commenced))
 
 
 @app.get("/user")

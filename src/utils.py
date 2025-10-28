@@ -4,6 +4,10 @@ import json
 
 from models.generic import LoggedInUser
 
+def nolog(*_, **__):
+    pass
+LOG = print
+
 
 async def validate_mojang_session(username: str, serverID: str):
     uri = getSessionCheckURI(username, serverID)
@@ -41,3 +45,18 @@ def getSessionCheckURI(username: str, serverId: str) -> str | None:
         print(f'Valid login from {username}')
         return f"https://sessionserver.mojang.com/session/minecraft/hasJoined?username={username}&serverId={serverId}"
     return None
+
+def persistent_token(length: int, name: str):
+    from os.path import isdir, isfile
+    if not isdir('auth'):
+        from os import mkdir
+        mkdir('auth')
+
+    loc = f'auth/{name}'
+    if isfile(loc):
+        return open(loc).read()
+
+    import secrets
+    res = secrets.token_urlsafe(length)
+    open(loc, 'w').write(res)
+    return res
