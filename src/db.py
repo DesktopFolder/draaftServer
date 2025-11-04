@@ -1,11 +1,12 @@
 from collections import defaultdict
 import sqlite3
+from draft import Draft
 
 from models.generic import LoggedInUser
 from typing import Any, DefaultDict
 
 from models.room import Room
-from utils import LOG, get_user_from_request
+from utils import LOG, IndentLog, get_user_from_request
 
 DB = sqlite3.connect("./db/draaft.db")
 cur = DB.cursor()
@@ -159,6 +160,15 @@ def get_active_user_from_request(request) -> tuple[PopulatedUser, Room] | None:
         return None
     return (u, r)
 
+def get_started_room(request) -> tuple[PopulatedUser, Room, Draft] | None:
+    u = get_populated_user_from_request(request)
+    if u is None:
+        return None
+    r = u.get_room()
+    if r is None or r.draft is None:
+        return None
+    return (u, r, r.draft)
+
 def get_admin_from_request(request) -> tuple[PopulatedUser, Room] | None:
     ad = get_active_user_from_request(request)
     if ad is None:
@@ -166,6 +176,23 @@ def get_admin_from_request(request) -> tuple[PopulatedUser, Room] | None:
     u, r = ad
     if u.uuid != r.admin:
         return None
+    return (u, r)
+
+def get_admin_in_unstarted_room(request) -> tuple[PopulatedUser, Room] | None:
+    IL = IndentLog()
+    IL("-- get_admin_in_unstarted_room --")
+    ad = get_active_user_from_request(request)
+    if ad is None:
+        IL("-> no active user found from request")
+        return None
+    u, r = ad
+    if u.uuid != r.admin:
+        IL("-> active user was not admin")
+        return None
+    if r.drafting():
+        IL("-> room was already started")
+        return None
+    IL("-> successfully got admin")
     return (u, r)
 
 def update_user(user: LoggedInUser, key: str, value: Any):

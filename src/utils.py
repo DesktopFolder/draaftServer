@@ -9,6 +9,10 @@ def nolog(*_, **__):
 LOG = print
 
 
+class IndentLog:
+    def __call__(self, *args, **kwargs):
+        LOG(" ", *args, **kwargs)
+
 async def validate_mojang_session(username: str, serverID: str):
     uri = getSessionCheckURI(username, serverID)
     if uri is None:
