@@ -53,12 +53,23 @@ DRAFTABLES: dict[str, Draftable] = {}
 _draftable_file = "draftables.json"
 def _add_draftable(d: Draftable):
     DRAFTABLES[d.key] = d
-_add_draftable(Draftable.basic(key="bucket", description="A fully-enchanted, max-tier bucket.", image="bucket.gif"))
+_add_draftable(Draftable.basic(key="bucket", description="A fully-enchanted, max-tier bucket.", image="bucket.png"))
+_add_draftable(Draftable.basic(key="helmet", description="Gives fully enchanted diamond helmet", image="helmet.gif"))
+_add_draftable(Draftable.basic(key="chestplate", description="Gives fully enchanted diamond chestplate", image="chestplate.gif"))
+_add_draftable(Draftable.basic(key="leggings", description="Gives fully enchanted diamond leggings", image="leggings.gif"))
+_add_draftable(Draftable.basic(key="boots", description="Gives fully enchanted diamond boots", image="boots.gif"))
+_add_draftable(Draftable.basic(key="sword", description="Gives fully enchanted diamond sword", image="sword.gif"))
+_add_draftable(Draftable.basic(key="pickaxe", description="Gives fully enchanted diamond pickaxe", image="pickaxe.gif"))
+_add_draftable(Draftable.basic(key="shovel", description="Gives fully enchanted diamond shovel", image="shovel.gif"))
+_add_draftable(Draftable.basic(key="hoe", description="Gives fully enchanted netherite hoe", image="netherite_hoe.gif"))
+_add_draftable(Draftable.basic(key="axe", description="Gives fully enchanted diamond axe", image="axe.gif"))
+_add_draftable(Draftable.basic(key="trident", description="Gives fully enchanted netherite trident", image="trident.gif"))
 
 
 # Configurable later, just get it working for now.
 POOLS: list[DraftPool] = [
-    DraftPool(name=AutoName.make_simple('Miscellaneous'), contains=["bucket"], kind=PoolTypeEnum.auto_names)
+    DraftPool(name=AutoName.make_simple('Armour'), contains=["helmet", "chestplate", "leggings", "boots", "bucket"], kind=PoolTypeEnum.icons),
+    DraftPool(name=AutoName.make_simple('Tools'), contains=["sword", "pickaxe", "shovel", "hoe", "axe", "trident"], kind=PoolTypeEnum.icons),
 ]
 
 
@@ -72,7 +83,9 @@ class DraftPick(BaseModel):
 
 
 class DraftPickUpdate(DraftPick):
-    variant: Literal['draftpick']
+    variant: Literal['draftpick'] = 'draftpick'
+    positions: list[str]
+    next_positions: list[str]
 
 
 class Draft(BaseModel):
@@ -81,7 +94,7 @@ class Draft(BaseModel):
         import random
         p = list(players)
         random.shuffle(p)
-        return Draft(players=p, position=list(p))
+        return Draft(players=p, position=list(p), next_positions=list(reversed(p)))
 
     def serialized(self) -> str:
         from models.ws import serialize
@@ -92,7 +105,8 @@ class Draft(BaseModel):
 
     players: list[str] = list()
     draft: list[DraftPick] = list()
-    position: list[str] = list()
+    position: list[str] = list() # Current set of draft picks
+    next_positions: list[str] = list() # next set of draft picks
     picked: set[str] = set()
 
 @rt.get('/status')
@@ -127,18 +141,11 @@ async def do_pick(request: Request, key: str):
     draft.position.pop(0)
     draft.draft.append(p)
     if not draft.position:
-        num_picks = len(draft.draft)
-        num_players = len(draft.players)
-        assert num_picks % num_players == 0
-        if (num_picks / num_players) % 2 == 1:
-            # 4 picks, 4 players -> 1 -> reversed
-            # 8 picks, 4 players -> 2 -> not reversed...
-            draft.position = list(reversed(draft.players))
-        else:
-            draft.position = list(draft.players)
+        draft.position = draft.next_positions
+        draft.next_positions = list(reversed(draft.next_positions))
 
     draft.picked.add(key)
     if not update_draft(draft, room.code):
         raise HTTPException(status_code=500, detail='Could not update draft internally..!')
 
-    await mg.broadcast_room(room, p)
+    await mg.broadcast_room(room, DraftPickUpdate(key=p.key, player=p.player, index=p.index, positions=draft.position, next_positions=draft.next_positions))
