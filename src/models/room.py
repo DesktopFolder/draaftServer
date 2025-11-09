@@ -61,7 +61,7 @@ class Room(BaseModel):
     draft: None | Draft = None
 
     def drafting(self) -> bool:
-        return self.draft is not None
+        return self.draft is not None and not self.draft.complete
 
     def set_drafting(self):
         from db import DB, cur

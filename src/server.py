@@ -83,10 +83,12 @@ PUBLIC_ROUTES = {
     "/",
     "/authenticate",
     "/version",
+    "/dev/becomeuser"
 }
 if "dev" in sys.argv:
     PUBLIC_ROUTES.add("/docs")
     PUBLIC_ROUTES.add("/openapi.json")
+    PUBLIC_ROUTES.add("/dev/becomeuser")
 
 
 @app.middleware("http")
@@ -128,7 +130,7 @@ app.add_middleware(
 
 ################### Routes #####################
 def make_fake_user(uuid: str, username: str):
-    insert_user(username=username, uuid=uuid)
+    return insert_user(username=username, uuid=uuid)
 
 
 if DEV_MODE_NO_AUTHENTICATE:
@@ -451,6 +453,38 @@ async def websocket_endpoint(*, websocket: WebSocket, token: str):
 
 # Development endpoints.
 if DEV_MODE_WEIRD_ENDPOINTS:
+    @app.post("/dev/becomeuser")
+    async def become_user(request: Request, response: Response):
+        PAIRS = {
+            "f41c16957a9c4b0cbd2277a7e28c37a6": "PacManMVC",
+            "4326adfebd724170953fd8dabd660538": "Totorewa",
+            "9038803187de426fbc4eea42e19c68ef": "me_nx",
+            "810ad7db704a46039dd3eaacd2908553": "Memerson",
+            "9a8e24df4c8549d696a6951da84fa5c4": "Feinberg",
+            "562a308be86c4ec09438387860e792cc": "Oxidiot",
+            "c17fdba3b5ee46179131c5b547069477": "Rejid",
+            "dc2fe0a1c03647778ee98b80e53397a0": "CrazySMC",
+            "afecd7c643b54d8a8a32b42a0db53418": "DoyPingu",
+            "754f6771eeca46f3b4f293e90a8df75c": "coosh02",
+            "c81a44e0c18544c29d1a93e0362b7777": "Snakezy",
+            "4129d8d1aafb4e73b97b9999db248060": "CroProYT",
+        }
+        UUIDS = set(PAIRS.keys())
+        to_add: str = choice(list(UUIDS))
+        if not make_fake_user(uuid=to_add, username=PAIRS[to_add]):
+            LOG(f"Note: Did not make user {PAIRS[to_add]}, simply returned new token")
+
+        payload = {
+            "username": PAIRS[to_add],
+            "uuid": to_add,
+            "serverID": "draafttestserver",
+            "iat": int(time.time()),
+            "exp": int(time.time()) + 60 * 60 * 24,  # 24 hours expiry
+        }
+
+        token = jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
+        # add user to db if not exists
+        return AuthenticationSuccess(token=token)
 
     @app.post("/dev/adduser")
     async def add_user(request: Request, response: Response):
