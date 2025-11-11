@@ -13,10 +13,11 @@ rt = APIRouter(prefix="/draft")
 class AutoName(BaseModel):
     @staticmethod
     def make_simple(name: str) -> "AutoName":
-        return AutoName(full_name=name, short_name=name)
+        return AutoName(full_name=name, short_name=name, pretty_name=basic_prettify(name))
 
     full_name: str
     short_name: str
+    pretty_name: str
 
 
 class Draftable(BaseModel):
@@ -491,11 +492,12 @@ class Draft(BaseModel):
 
         # allowed picks per player per pool
         picks_per = 2 if num_players <= 2 else 1
-        if num_players == 1:
-            # idk
-            picks_per = 6
         # total number of picks before we're done
         max_picks = len(POOLS * picks_per * num_players)
+        if num_players == 1:
+            # idk
+            picks_per = 9
+            max_picks = sum([len(p.contains) for p in POOLS])
 
         return Draft(players=p, position=list(p), next_positions=list(reversed(p)), max_picks=max_picks, picks_per_pool=picks_per)
 
