@@ -85,6 +85,10 @@ class Datapack:
     def ontick(self, user: str) -> str:
         return ""
 
+    # no players for this for now
+    def custom_file(self) -> dict[str, str]:
+        return {}
+
     def description(self) -> str:
         return "error: bad description call"
 
@@ -119,6 +123,15 @@ class LambdaGranter(Datapack):
         if self.ontick_ is not None:
             return self.ontick_(user)
         return ""
+
+
+class FileGranter(Datapack):
+    def __init__(self, file_granter: dict[str, str]):
+        self.file_granter = file_granter
+
+    @override
+    def custom_file(self) -> dict[str, str]:
+        return self.file_granter
 
 
 PRETTY_ADVANCEMENTS = {
@@ -176,11 +189,12 @@ class AdvancementGranter(Datapack):
 
 
 class ItemGranter(Datapack):
-    def __init__(self, item: str, count: int = 1, player: str | None = None, desc_name: str | None=None):
+    def __init__(self, item: str, count: int = 1, player: str | None = None, desc_name: str | None=None, no_multi: bool = False):
         self.player = player
         self.item = item
         self.desc_item = desc_name or item.split('{', 1)[0].replace('_', ' ')
         self.count = count
+        self.no_multi = no_multi
 
     @override
     def onload(self, user: str) -> str:
@@ -188,8 +202,8 @@ class ItemGranter(Datapack):
 
     @override
     def description(self) -> str:
-        if self.count == 1:
-            return f"Gives 1 {self.desc_item}"
+        if self.count == 1 or self.no_multi:
+            return f"Gives {self.count} {self.desc_item}"
         return f"Gives {self.count} {self.desc_item}s"
 
 
@@ -260,7 +274,7 @@ def _add_advancement(
     key: str,
     image: str,
     advs: list[str | tuple[str, list[str]]],
-    advancement: str | None="challenge.png",
+    advancement: str | None="challenge-incomplete.png",
 ):
     l: list[Datapack] = list()
     for adv in advs:
@@ -307,6 +321,7 @@ _add_advancement(
         ),
         ("adventure/kill_all_mobs", ["cave_spider"]),
     ],
+    advancement=None,
 )
 
 _add_advancement(
@@ -326,6 +341,7 @@ _add_advancement(
         ("husbandry/bred_all_animals", ["minecraft:panda", "minecraft:ocelot"]),
         ("husbandry/balanced_diet", ["melon_slice", "cookie"]),
     ],
+    advancement=None,
 )
 
 _add_advancement(
@@ -346,6 +362,7 @@ _add_advancement(
         ("adventure/kill_all_mobs", ["stray"]),
         "story/cure_zombie_villager",
     ],
+    advancement=None,
 )
 
 _add_advancement(
@@ -356,6 +373,7 @@ _add_advancement(
         ("husbandry/balanced_diet", ["sweet_berries"]),
         ("husbandry/bred_all_animals", ["fox"]),
     ],
+    advancement=None,
 )
 
 _add_advancement(
@@ -365,7 +383,14 @@ _add_advancement(
         ("adventure/adventuring_time", ["mushroom_fields", "mushroom_field_shore"]),
         ("husbandry/bred_all_animals", ["mooshroom"]),
     ],
+    advancement=None,
 )
+
+_add_advancement( key="complete_catalogue", image="raw_cod.png", advs=["husbandry/complete_catalogue"])
+_add_advancement(key="adventuring_time", image="diamond_boots.png", advs=["adventure/adventuring_time"])
+_add_advancement(key="two_by_two", image="golden_carrot.png", advs=["husbandry/bred_all_animals"])
+_add_advancement(key="monsters_hunted", image="diamond_sword.png", advs=["adventure/kill_all_mobs"])
+_add_advancement(key="a_balanced_diet", image="apple.png", advs=["husbandry/balanced_diet"])
 
 _add_draftable(Draftable.basic(key="fireres", image="fire_resistance.png", description="Grants permanent Fire Resistance.", name="Fire Resistance"), datapack=[CustomGranter(ontick="effect give @{USERNAME} minecraft:fire_resistance 3600")])
 
@@ -377,202 +402,20 @@ _add_multi(key="hives", image="beenest.png", gens=[ItemGranter('bee_nest{BlockEn
 
 _add_multi(key="crossbow", image="crossbow.gif", gens=[EnchantedItemGranter("crossbow", [("piercing", 4)])])
 
-def shulker_granter(user: str):
+def shulker_granter(user: str) -> str:
     import random
     colour = random.randint(0, 16)
 
-    f"execute at {user} run summon minecraft:boat ~ ~2 ~ {{Passengers:[{{id:shulker,Color:{colour}}}]}}"
+    return f"execute at {user} run summon minecraft:boat ~ ~2 ~ {{Passengers:[{{id:shulker,Color:{colour}}}]}}"
 
-# pyright is buggy here idk lol
 _add_multi(key="transport", image="shulkerboat.png", gens=[LambdaGranter(onload=shulker_granter)], description="Spawns a boated shulker on world load.")
 
-"""
-
-// Pool: Big
-let dACC = new DraftItem(
-    "A Complete Catalogue",
-    "Gives a complete catalogue",
-    "acc.png",
-    (file) => {
-        file += `
-advancement grant @a only minecraft:husbandry/complete_catalogue
-        `;
-        return file;
-    }
-);
-dACC.boxName = "Catalogue";
-let dAT = new DraftItem(
-    "Adventuring Time",
-    "Gives adventuring time",
-    "at.png",
-    (file) => {
-        file += `
-advancement grant @a only minecraft:adventure/adventuring_time
-        `;
-        return file;
-    }
-);
-dAT.boxName = "Adventuring";
-dAT.smallName = "AT";
-let d2b2 = new DraftItem(
-    "Two by Two",
-    "Gives two by two",
-    "2b2.png",
-    (file) => {
-        file += `
-advancement grant @a only minecraft:husbandry/bred_all_animals
-        `;
-        return file;
-    }
-);
-let dMH = new DraftItem(
-    "Monsters Hunted",
-    "Gives monsters hunted",
-    "mh.png",
-    (file) => {
-        file += `
-advancement grant @a only minecraft:adventure/kill_all_mobs
-        `;
-        return file;
-    }
-);
-dMH.boxName = "Monsters";
-let dABD = new DraftItem(
-    "A Balanced Diet",
-    "Gives a balanced diet",
-    "abd.png",
-    (file) => {
-        file += `
-advancement grant @a only minecraft:husbandry/balanced_diet
-        `;
-        return file;
-    }
-);
-dABD.boxName = "Balanced Diet";
-dABD.smallName = "Balanced";
-
-// Pool: Collectors
-let dNetherite = new DraftItem(
-    "Netherite",
-    "Gives 4 netherite ingots",
-    "netherite.png",
-    (file) => {
-        file += `
-give @a minecraft:netherite_ingot 4
-        `;
-        return file;
-    }
-);
-let dShells = new DraftItem(
-    "Shells",
-    "Gives 7 nautilus shells",
-    "shell.png",
-    (file) => {
-        file += `
-give @a minecraft:nautilus_shell 7
-        `;
-        return file;
-    }
-);
-let dSkulls = new DraftItem(
-    "Skulls",
-    "Gives 2 wither skeleton skulls",
-    "skull.png",
-    (file) => {
-        file += `
-give @a minecraft:wither_skeleton_skull 2
-        `;
-        return file;
-    }
-);
-let dShulker = new DraftItem(
-    "Shulker Box",
-    "Gives a shulker box",
-    "shulker.png",
-    (file) => {
-        file += `
-give @a minecraft:shulker_box
-        `;
-        return file;
-    }
-);
-dShulker.smallName = "Box";
-let dBees = new DraftItem(
-    "Bees",
-    "Gives all bee-related requirements",
-    "bees.png",
-    (file) => {
-        file += `
-advancement grant @a only minecraft:husbandry/safely_harvest_honey
-advancement grant @a only minecraft:husbandry/silk_touch_nest
-advancement grant @a only minecraft:adventure/honey_block_slide
-advancement grant @a only minecraft:husbandry/bred_all_animals minecraft:bee
-advancement grant @a only minecraft:husbandry/balanced_diet honey_bottle
-        `;
-        return file;
-    }
-);
-
-// Pool: misc
-let dTotem = new DraftItem(
-    "Totem",
-    "Gives totem of undying and evoker & vex kill credit",
-    "skull.png",
-    (file) => {
-        file += `
-give @a minecraft:totem_of_undying
-advancement grant @a only minecraft:adventure/kill_all_mobs minecraft:evoker
-advancement grant @a only minecraft:adventure/kill_all_mobs minecraft:vex
-        `;
-        return file;
-    }
-);
-let dFireworks = new DraftItem(
-    "Fireworks",
-    "Gives 23 gunpowder / paper",
-    "firework.png",
-    itemGiver("gunpowder", 23, "paper", 23),
-);
-let dGrace = new DraftItem(
-    "Dolphin's Grace",
-    "Gives dolphin's grace",
-    "firework.png",
-    (file) => {
-        file += `
-effect give @a minecraft:dolphins_grace 3600
-        `;
-        return file;
-    }
-);
-dGrace.simpleName = "Grace";
-dGrace.boxName = "Grace";
-dGrace.fileQuery = "tick.mcfunction";
-
-let dObi = new DraftItem(
-    "Obsidian",
-    "Gives 10 obsidian.",
-    "obi.png",
-    itemGiver("obsidian", 10),
-);
-let dLogs = new DraftItem(
-    "Logs",
-    "Gives 64 oak logs.",
-    "logs.png",
-    itemGiver("acacia_log", 64),
-);
-let dEyes = new DraftItem(
-    "Eyes",
-    "Gives 2 eyes of ender.",
-    "eyes.png",
-    itemGiver("ender_eye", 2),
-);
-
-let dRods = new DraftItem(
-    "Rod Rates",
-    "Blazes never drop 0 rods.",
-    "blaze.png",
-    (file) => {
-        file += `
+_add_multi(key="box", image="shulker_box.png", gens=[ItemGranter("shulker_box", 1)])
+_add_multi(key="obsidian", image="obsidian.png", gens=[ItemGranter("obsidian", 10, no_multi=True)])
+_add_multi(key="fireworks", image="firework_rocket.png", gens=[ItemGranter("gunpowder", 23, no_multi=True), ItemGranter("paper", 23, no_multi=True)])
+_add_multi(key="logs", image="log.png", gens=[ItemGranter("acacia_log", 64)])
+_add_multi(key="eyes", image="ender_eye.png", gens=[ItemGranter("ender_eye", 2, desc_name="eyes of ender", no_multi=True)])
+_add_multi(key="rates", image="blaze_rod.png", gens=[FileGranter({"draaftpack/data/minecraft/loot_tables/entities/blaze.json": """
 {
   "type": "minecraft:entity",
   "pools": [
@@ -609,12 +452,7 @@ let dRods = new DraftItem(
     }
   ]
 }
-        `;
-        return file;
-    }
-
-
-"""
+"""})], description="Blazes never drop 0 rods.")
 
 # Configurable later, just get it working for now.
 POOLS: list[DraftPool] = [
@@ -622,9 +460,10 @@ POOLS: list[DraftPool] = [
     DraftPool(name=AutoName.make_simple('Tools'), contains=["sword", "pickaxe", "axe", "shovel", "hoe", "trident"], kind=PoolTypeEnum.icons),
     DraftPool(name=AutoName.make_simple('Biomes'), contains=["badlands", "jungle", "mega_taiga", "mushroom_island", "snowy"], kind=PoolTypeEnum.icons),
     DraftPool(name=AutoName.make_simple('Misc'), contains=["leads", "fireres", "hives", "breeds", "crossbow", "transport"], kind=PoolTypeEnum.icons),
+    DraftPool(name=AutoName.make_simple('Advancements'), contains=["complete_catalogue","adventuring_time","two_by_two","monsters_hunted","a_balanced_diet"], kind=PoolTypeEnum.icons),
+    DraftPool(name=AutoName.make_simple('Early Game'), contains=["box", "obsidian", "fireworks", "logs", "eyes", "rates"], kind=PoolTypeEnum.icons),
 ]
-
-
+ 
 class DraftPick(BaseModel):
     # Key of the draftable
     key: str
