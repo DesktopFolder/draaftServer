@@ -404,6 +404,8 @@ async def commence_room(request: Request):
 
     if not r.get_players():
         raise HTTPException(status_code=403, detail=f'Cannot start room {r.code} - no players.')
+    if len(r.get_players()) > 4:
+        raise HTTPException(status_code=403, detail=f'Cannot start room {r.code} - too many players ({len(r.get_players())})')
 
     LOG("Commencing room:", r.code)
 
@@ -454,7 +456,8 @@ async def websocket_endpoint(*, websocket: WebSocket, token: str):
 # Development endpoints.
 if DEV_MODE_WEIRD_ENDPOINTS:
     @app.post("/dev/becomeuser")
-    async def become_user(request: Request, response: Response):
+    async def become_user(request: Request, response: Response, username: str | None = None):
+        from utils import ratelimited_username_to_uuid
         PAIRS = {
             "f41c16957a9c4b0cbd2277a7e28c37a6": "PacManMVC",
             "4326adfebd724170953fd8dabd660538": "Totorewa",
@@ -469,14 +472,22 @@ if DEV_MODE_WEIRD_ENDPOINTS:
             "c81a44e0c18544c29d1a93e0362b7777": "Snakezy",
             "4129d8d1aafb4e73b97b9999db248060": "CroProYT",
         }
-        UUIDS = set(PAIRS.keys())
-        to_add: str = choice(list(UUIDS))
-        if not make_fake_user(uuid=to_add, username=PAIRS[to_add]):
-            LOG(f"Note: Did not make user {PAIRS[to_add]}, simply returned new token")
+        if username is not None:
+            maybe_uuid = await ratelimited_username_to_uuid(username)
+            if maybe_uuid is None:
+                return AuthenticationFailure(message=f"{username} is not a valid username")
+            uuid = maybe_uuid
+        else:
+            UUIDS = set(PAIRS.keys())
+            uuid: str = choice(list(UUIDS))
+            username = PAIRS[uuid]
+
+        if not make_fake_user(uuid=uuid, username=username):
+            LOG(f"Note: Did not make user {username}, simply returned new token")
 
         payload = {
-            "username": PAIRS[to_add],
-            "uuid": to_add,
+            "username": username,
+            "uuid": uuid,
             "serverID": "draafttestserver",
             "iat": int(time.time()),
             "exp": int(time.time()) + 60 * 60 * 24,  # 24 hours expiry

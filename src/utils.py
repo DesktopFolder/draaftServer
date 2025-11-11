@@ -27,6 +27,21 @@ async def validate_mojang_session(username: str, serverID: str):
     return {"success": True, "data": resp_data}
 
 
+async def ratelimited_username_to_uuid(username: str):
+    if not valid_username(username):
+        return None
+    async with aiohttp.ClientSession() as session:
+        async with session.get(f"https://api.mojang.com/users/profiles/minecraft/{username}") as resp:
+            if resp.status != 200:
+                return None
+            resp_data = await resp.json()
+    uuid = resp_data["id"]
+    if not isinstance(uuid, str):
+        return None
+    return uuid
+
+
+
 def get_user_from_request(request) -> LoggedInUser | None:
     token = request.state.valid_token
     if token is None or not hasattr(request.state, 'logged_in_user') or request.state.logged_in_user is None or not isinstance(request.state.logged_in_user, LoggedInUser):
