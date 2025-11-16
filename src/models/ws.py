@@ -47,6 +47,7 @@ class RoomUpdateEnum(str, Enum):
     closed = 'closed'
     config = 'config'
     commenced = 'commenced'
+    draft_complete = 'draft_complete'
 
 class RoomUpdate(BaseModel):
     variant: Literal['roomupdate'] = 'roomupdate'

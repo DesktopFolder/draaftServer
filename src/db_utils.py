@@ -14,6 +14,7 @@ def always_get_populated_user_from_request(request) -> PopulatedUser:
 
 def always_get_drafting_player(request) -> tuple[PopulatedUser, Room, Draft]:
     # Gets a user, room, and draft IFF the user is a player in the draft
+    # okay, technically does not check if the draft is complete
     u = always_get_populated_user_from_request(request)
     r = u.get_room()
     if r is None:

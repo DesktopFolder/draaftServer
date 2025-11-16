@@ -21,7 +21,8 @@ def setup_sqlite():
             code char(7) UNIQUE NOT NULL,
             admin char(32) NOT NULL,
             config VARCHAR DEFAULT '{}',
-            draft VARCHAR
+            draft VARCHAR,
+            state VARCHAR DEFAULT '{}'
         );
     """)
 

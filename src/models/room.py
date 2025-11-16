@@ -32,6 +32,10 @@ class RoomConfig(BaseModel):
     pick_time: int = 15
     spectators_get_world: bool = False
     gambits: bool = True
+    overworld_seed: int | None = None
+    nether_seed: int | None = None
+    end_seed: int | None = None
+
 
     def merge_config(self, other_config: dict) -> Self:
         import json
@@ -50,6 +54,21 @@ class RoomConfig(BaseModel):
         return RoomConfig(**our_data)
 
 
+class RoomState(BaseModel):
+    overworld_seed: int | None = None
+    nether_seed: int | None = None
+    end_seed: int | None = None
+
+    def start_draft(self):
+        from seeds import get_overworld, get_nether, get_end
+        if self.overworld_seed is None:
+            self.overworld_seed = get_overworld()
+        if self.nether_seed is None:
+            self.nether_seed = get_nether()
+        if self.end_seed is None:
+            self.end_seed = get_end()
+
+
 class Room(BaseModel):
     code: str
     members: set[str]
@@ -59,6 +78,7 @@ class Room(BaseModel):
 
     config: RoomConfig
     draft: None | Draft = None
+    state: RoomState
 
     def drafting(self) -> bool:
         return self.draft is not None and not self.draft.complete
@@ -68,10 +88,16 @@ class Room(BaseModel):
         from models.ws import serialize
         from sqlite3 import IntegrityError
 
+        self.state.start_draft()
+
         try:
             cur.execute(
                 "UPDATE rooms SET draft = CASE WHEN draft IS NULL THEN ? ELSE draft END WHERE code = ?",
                 (serialize(Draft.from_players(self.get_players())), self.code),
+            )
+            cur.execute(
+                "UPDATE rooms SET state = ? WHERE code = ?",
+                (serialize(self.state), self.code),
             )
             DB.commit()
         except IntegrityError:

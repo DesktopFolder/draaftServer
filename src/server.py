@@ -1,6 +1,7 @@
 from random import choice
 import time
 from typing import Any, Callable, Coroutine
+from datapack_utils import setup_datapack_caching
 
 import jwt
 from fastapi import (
@@ -49,6 +50,7 @@ from room_manager import mg
 from draft import rt
 
 setup_sqlite()
+setup_datapack_caching()
 
 JWT_SECRET = persistent_token(32, "JWT_SECRET")
 JWT_ALGORITHM = "HS256"

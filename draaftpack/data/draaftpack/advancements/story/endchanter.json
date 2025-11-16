@@ -1,0 +1,30 @@
+{
+  "parent": "minecraft:story/enchant_item",
+  "display": {
+    "icon": {
+      "item": "minecraft:enchanting_table"
+    },
+    "title": {
+      "translate": "End-chanter"
+    },
+    "description": {
+      "translate": "Enchant an item at an Enchanting Table in the End"
+    },
+    "frame": "challenge",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": true
+    },
+    "criteria": {
+        "enchant_item": {
+            "trigger": "minecraft:enchanted_item",
+            "conditions": {
+                "player": {
+                    "location": {
+                        "dimension": "minecraft:the_end"
+                    }
+                }
+            }
+        }
+    }
+}

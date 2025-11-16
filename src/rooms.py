@@ -3,7 +3,7 @@ import random
 from sqlite3 import IntegrityError
 from draft import Draft
 
-from models.room import Room, RoomConfig
+from models.room import Room, RoomConfig, RoomState
 from models.ws import deserialize, serialize
 
 
@@ -53,7 +53,9 @@ def get_room_from_code(room_code: str) -> Room | None:
         print("ERROR: Could not deserialize room config:", res[0][3])
         rc = RoomConfig()
     dr = deserialize(res[0][4], Draft)
-    return Room(code=room_code, members=members, admin=admin, config=rc, draft=dr)
+    roomstate = deserialize(res[0][5], RoomState)
+    assert roomstate is not None
+    return Room(code=room_code, members=members, admin=admin, config=rc, draft=dr, state=roomstate)
 
 
 def update_config(config: str, code: str) -> bool:

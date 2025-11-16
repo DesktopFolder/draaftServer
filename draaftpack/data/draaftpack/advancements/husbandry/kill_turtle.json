@@ -1,0 +1,24 @@
+{
+    "parent": "minecraft:husbandry/breed_an_animal",	
+    "display": {
+        "icon": {
+            "item": "minecraft:seagrass"
+        },
+        "title": {"translate":"Shearly there was another way..."},
+        "description": {"translate":"Kill a Turtle"},
+        "frame": "task",
+        "show_toast": true,
+        "announce_to_chat": true,
+        "hidden": true
+    },
+    "criteria": {
+        "minecraft:turtle": {
+            "trigger": "minecraft:player_killed_entity",
+            "conditions": {
+                "entity": {
+                    "type": "minecraft:turtle"
+                }
+            }
+        }
+    }
+}

@@ -1,0 +1,42 @@
+{
+  "parent": "minecraft:adventure/very_very_frightening",
+  "display": {
+    "icon": {
+            "item": "minecraft:trident",
+            "nbt": "{Enchantments:[{id:\"minecraft:channeling\",lvl:1}]}"
+        },
+    "title": {
+      "translate": "Very Very Very Frightening"
+    },
+    "description": {
+      "translate": "Obliterate a Pillager using a bolt of lightning"
+    },
+    "frame": "challenge",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": true
+  },
+  "criteria": {
+    "struck_pillager": {
+      "trigger": "minecraft:channeled_lightning",
+      "conditions": {
+        "victims": [
+          [
+            {
+              "condition": "minecraft:entity_properties",
+              "predicate": {
+                "type": "minecraft:pillager"
+              },
+              "entity": "this"
+            }
+          ]
+        ]
+      }
+    }
+  },
+  "requirements": [
+    [
+      "struck_pillager"
+    ]
+  ]
+}

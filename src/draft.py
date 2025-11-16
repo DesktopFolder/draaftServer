@@ -2,6 +2,7 @@ from collections import defaultdict
 from enum import Enum
 from typing import DefaultDict, Literal, Any, Callable
 from typing_extensions import override
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from fastapi import APIRouter, HTTPException, Request, Response
 
@@ -267,6 +268,7 @@ _draftable_file = "draftables.json"
 
 def _add_draftable(d: Draftable, datapack: None | list[Datapack] = None):
     DRAFTABLES[d.key] = d
+    assert datapack is not None
     if datapack is not None:
         DATAPACK[d.key] = datapack
 
@@ -393,7 +395,7 @@ _add_advancement(key="two_by_two", image="golden_carrot.png", advs=["husbandry/b
 _add_advancement(key="monsters_hunted", image="diamond_sword.png", advs=["adventure/kill_all_mobs"])
 _add_advancement(key="a_balanced_diet", image="apple.png", advs=["husbandry/balanced_diet"])
 
-_add_draftable(Draftable.basic(key="fireres", image="fire_resistance.png", description="Grants permanent Fire Resistance.", name="Fire Resistance"), datapack=[CustomGranter(ontick="effect give @{USERNAME} minecraft:fire_resistance 3600")])
+_add_draftable(Draftable.basic(key="fireres", image="fire_resistance.png", description="Grants permanent Fire Resistance.", name="Fire Resistance"), datapack=[CustomGranter(ontick="effect give {USERNAME} minecraft:fire_resistance 3600")])
 
 _add_multi(key="leads", image="lead.png", gens=[ItemGranter("lead", 23), AdvancementGranter(advancement="adventure/kill_all_mobs", criteria="slime")])
 
@@ -416,7 +418,7 @@ _add_multi(key="obsidian", image="obsidian.png", gens=[ItemGranter("obsidian", 1
 _add_multi(key="fireworks", image="firework_rocket.png", gens=[ItemGranter("gunpowder", 23, no_multi=True), ItemGranter("paper", 23, no_multi=True)])
 _add_multi(key="logs", image="log.png", gens=[ItemGranter("acacia_log", 64)])
 _add_multi(key="eyes", image="ender_eye.png", gens=[ItemGranter("ender_eye", 2, desc_name="eyes of ender", no_multi=True)])
-_add_multi(key="rates", image="blaze_rod.png", gens=[FileGranter({"draaftpack/data/minecraft/loot_tables/entities/blaze.json": """
+_add_multi(key="rates", image="blaze_rod.png", gens=[FileGranter({"data/minecraft/loot_tables/entities/blaze.json": """
 {
   "type": "minecraft:entity",
   "pools": [
@@ -490,14 +492,15 @@ class Draft(BaseModel):
 
         num_players = len(players)
 
-        # allowed picks per player per pool
-        picks_per = 2 if num_players <= 2 else 1
-        # total number of picks before we're done
-        max_picks = len(POOLS * picks_per * num_players)
         if num_players == 1:
             # idk
             picks_per = 9
             max_picks = sum([len(p.contains) for p in POOLS])
+        else:
+            # allowed picks per player per pool
+            picks_per = 2 if num_players <= 2 else 1
+            # total number of picks before we're done
+            max_picks = sum([min(picks_per * num_players, len(p.contains)) for p in POOLS])
 
         return Draft(players=p, position=list(p), next_positions=list(reversed(p)), max_picks=max_picks, picks_per_pool=picks_per)
 
@@ -535,6 +538,34 @@ async def get_status(request: Request) -> Draft:
 @rt.get("/draftables")
 async def get_draftables() -> tuple[list[DraftPool], dict[str, Draftable]]:
     return (POOLS, DRAFTABLES)
+
+
+@rt.get("/download")
+async def download_result(request: Request):
+    from db_utils import always_get_drafting_player
+    from datapack_utils import get_datapack
+    # making use of the fact always_get_drafting_player works on comlete drafts
+    user, room, draft = always_get_drafting_player(request)
+    if not draft.complete: 
+        raise HTTPException(status_code=403, detail="The draft is not complete.")
+    p, n = get_datapack(uuid=user.uuid, username=user.source.username, code=room.code, draft=draft)
+    return FileResponse(path=p, media_type='application/octet-stream', filename=n)
+
+
+@rt.get("/worldgen")
+async def download_worldgen(request: Request):
+    from db_utils import always_get_drafting_player
+    from seeds import make_settings
+    # making use of the fact always_get_drafting_player works on comlete drafts
+    _, room, draft = always_get_drafting_player(request)
+    if not draft.complete: 
+        raise HTTPException(status_code=403, detail="The draft is not complete.")
+    ow = room.state.overworld_seed
+    nt = room.state.nether_seed
+    en = room.state.end_seed
+    if ow is None or nt is None or en is None:
+        raise HTTPException(status_code=500, detail="Seed not found!")
+    return make_settings(ow, nt, en)
 
 
 @rt.post("/pick")
@@ -580,6 +611,11 @@ async def do_pick(request: Request, key: str):
         draft.next_positions = list(reversed(draft.next_positions))
 
     draft.picked.add(key)
+
+    # if the draft is complete...
+    if len(draft.draft) >= draft.max_picks:
+        draft.complete = True
+
     if not update_draft(draft, room.code):
         raise HTTPException(
             status_code=500, detail="Could not update draft internally..!"
@@ -595,3 +631,10 @@ async def do_pick(request: Request, key: str):
             next_positions=draft.next_positions,
         ),
     )
+
+    if draft.complete:
+        from models.ws import RoomUpdate, RoomUpdateEnum
+        await mg.broadcast_room(
+            room,
+            RoomUpdate(update=RoomUpdateEnum.draft_complete),
+        )
