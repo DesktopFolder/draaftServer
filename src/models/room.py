@@ -1,6 +1,6 @@
 from enum import Enum
 from pydantic import BaseModel
-from typing import Self
+from typing import Self, get_type_hints, Optional
 
 from models.api import APIError
 from draft import Draft
@@ -27,6 +27,19 @@ class RoomJoinError(APIError):
     pass
 
 
+# really really awkward that we seemingly have to do this.
+# workarounds are atrocious, basically.
+OPTIONALS = { 'overworld_seed': int, 'nether_seed': int, 'end_seed': int }
+
+
+def check_type(k, v, data):
+    if k not in data:
+        return False
+    if k in OPTIONALS:
+        return v is None or isinstance(v, OPTIONALS[k])
+    return isinstance(v, type(data[k]))
+
+
 class RoomConfig(BaseModel):
     enforce_timer: bool = False
     pick_time: int = 15
@@ -37,21 +50,21 @@ class RoomConfig(BaseModel):
     end_seed: int | None = None
 
 
-    def merge_config(self, other_config: dict) -> Self:
+    def merge_config(self, other_config: dict) -> tuple[Self, set[str]]:
         import json
         from models.ws import deserialize, serialize
 
         our_data: dict = json.loads(serialize(self))
         other_config = {
             k: v
-            for (k, v) in other_config
-            if (k in our_data and isinstance(v, type(our_data[k])))
+            for (k, v) in other_config.items()
+            if check_type(k, v, our_data)
         }
         if not other_config:
             return self
         for k, v in other_config.items():
             our_data[k] = v
-        return RoomConfig(**our_data)
+        return RoomConfig(**our_data), set(other_config.keys())
 
 
 class RoomState(BaseModel):

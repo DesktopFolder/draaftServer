@@ -44,9 +44,12 @@ class RoomManager:
     async def update_status(self, room: Room, user: str, status: PlayerActionEnum):
         await self.broadcast_room(room, PlayerUpdate(uuid=user, action=status))
 
-    async def update_room(self, room: Room, c: RoomConfig):
+    async def update_room(self, room: Room, c: RoomConfig, restrict: set[str] | None = None):
         # Update the db first, then send the update, I guess
-        await self.broadcast_room(room, RoomUpdate(update=RoomUpdateEnum.config, config=c))
+        if restrict is not None:
+            await self.broadcast_room(room, RoomUpdate(update=RoomUpdateEnum.config, config=c))
+        else:
+            await self.broadcast_room(room, RoomUpdate(update=RoomUpdateEnum.config, config=c))
 
     async def send_join(self, ws: WebSocket, room: Room):
         # Send any information that wasn't initially sent.

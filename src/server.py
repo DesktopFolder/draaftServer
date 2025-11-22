@@ -381,6 +381,8 @@ async def configure_room(request: Request, payload: Any = Body(None)):
         LOG("Got empty payload for /room/configure")
         return
 
+    LOG("Got configuration update:", payload)
+
     if r.drafting():
         # I guess technically this should be done at the sql level but whatever
         # Not really that worried about this
@@ -391,10 +393,10 @@ async def configure_room(request: Request, payload: Any = Body(None)):
         LOG("Got weird type", type(payload), "for /room/configure")
         return
 
-    new_config = r.config.merge_config(payload)
+    new_config, changed_keys = r.config.merge_config(payload)
 
     rooms.update_config(code=r.code, config=serialize(new_config))
-    await mg.update_room(r, new_config)
+    await mg.update_room(r, new_config, restrict=changed_keys)
 
 
 @app.post("/room/commence")
