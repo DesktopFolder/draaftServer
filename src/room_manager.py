@@ -13,6 +13,7 @@ import rooms
 class RoomManager:
     def __init__(self):
         self.users: defaultdict[str, set[WebSocket]] = defaultdict(lambda: set())
+        self.room_updates = dict()
 
     def subscribe(self, websocket: WebSocket, user: PopulatedUser):
         self.users[user.uuid].add(websocket)
@@ -44,12 +45,13 @@ class RoomManager:
     async def update_status(self, room: Room, user: str, status: PlayerActionEnum):
         await self.broadcast_room(room, PlayerUpdate(uuid=user, action=status))
 
-    async def update_room(self, room: Room, c: RoomConfig, restrict: set[str] | None = None):
+    async def update_room(self, room: Room, c: RoomConfig):
+        from asyncio import create_task
+        # TODO: This should really be buffered. Update the room after a second with the latest information.
         # Update the db first, then send the update, I guess
-        if restrict is not None:
-            await self.broadcast_room(room, RoomUpdate(update=RoomUpdateEnum.config, config=c))
-        else:
-            await self.broadcast_room(room, RoomUpdate(update=RoomUpdateEnum.config, config=c))
+        if room.code not in self.room_updates:
+            create_task(update_room_delayed(self, room))
+        self.room_updates[room.code] = c
 
     async def send_join(self, ws: WebSocket, room: Room):
         # Send any information that wasn't initially sent.
@@ -59,3 +61,10 @@ class RoomManager:
 
 
 mg = RoomManager()
+
+async def update_room_delayed(mgr: RoomManager, room: Room):
+    from asyncio import sleep
+    await sleep(1)
+    c = mgr.room_updates[room.code]
+    mgr.room_updates.pop(room.code)
+    await mgr.broadcast_room(room, RoomUpdate(update=RoomUpdateEnum.config, config=c))

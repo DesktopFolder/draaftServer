@@ -396,7 +396,7 @@ async def configure_room(request: Request, payload: Any = Body(None)):
     new_config, changed_keys = r.config.merge_config(payload)
 
     rooms.update_config(code=r.code, config=serialize(new_config))
-    await mg.update_room(r, new_config, restrict=changed_keys)
+    await mg.update_room(r, new_config)
 
 
 @app.post("/room/commence")
