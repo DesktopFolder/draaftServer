@@ -261,9 +261,28 @@ class SimpleMultiCriteria(Datapack):
         return f"Grants {criteriaes} from {self.adv}"
 
 
+class Gambit(BaseModel):
+    key: str
+    name: str
+    description: str
+
+
+GAMBITABLES: dict[str, Gambit] = {}
 DRAFTABLES: dict[str, Draftable] = {}
 DATAPACK: dict[str, list[Datapack]] = dict()
 _draftable_file = "draftables.json"
+
+
+def _add_gambit(
+    key: str,
+    name: str,
+    gens: list[Datapack],
+    description: str):
+    GAMBITABLES[key] = Gambit(key=key, name=name, description=description)
+    DATAPACK[key] = gens
+
+
+_add_gambit("sealegs", "Seasickness", [CustomGranter(ontick="effect give {USERNAME} minecraft:nausea 3600\neffect give {USERNAME} minecraft:conduit_power 3600")], "You have constant conduit power / You have constant nausea")
 
 
 def _add_draftable(d: Draftable, datapack: None | list[Datapack] = None):
@@ -476,6 +495,9 @@ class DraftPick(BaseModel):
     index: int
 
 
+GambitKey = str # key of the gambit
+
+
 class DraftPickUpdate(DraftPick):
     variant: Literal["draftpick"] = "draftpick"
     positions: list[str]
@@ -512,12 +534,114 @@ class Draft(BaseModel):
             raise RuntimeError("Could not serialize draft object?!")
         return res
 
+    def get_gambits(self, player_uuid: str):
+        return self.gambits.get(player_uuid, set())
+    def set_gambit(self, player_uuid: str, gambit: GambitKey, value: bool):
+        if player_uuid not in self.gambits:
+            self.gambits[player_uuid] = set()
+        if value:
+            self.gambits[player_uuid].add(gambit)
+        else:
+            self.gambits[player_uuid].remove(gambit)
+
+    async def random_pick(self, room):
+        from models.room import Room
+        from collections import defaultdict
+        assert isinstance(room, Room)
+
+        if not self.position:
+            LOG("no position?!")
+            return
+
+        uuid = self.position[0]
+        
+        ppp = self.picks_per_pool
+        o = defaultdict(lambda: ppp)
+        allowed = {p.name.short_name: p for p in POOLS}
+
+        for pk in self.draft:
+            if pk.player != uuid:
+                continue
+            p = POOL_MAPPING[pk.key]
+            n = p.name.short_name
+            o[n] -= 1
+            if o[n] == 0:
+                allowed.pop(n)
+
+        keys = []
+        for a in allowed.values():
+            for k in a.contains:
+                if k in self.picked:
+                    continue
+                # unpicked and allowed
+                keys.append(k)
+        if not keys:
+            raise RuntimeError(f"Could not random pick {self} {self.draft} {uuid}")
+        from random import choice
+        k = choice(keys)
+        await self.execute_pick(k, uuid, room)
+
+
+    async def execute_pick(self, key: str, player: str, room):
+        from room_manager import mg
+        from rooms import update_draft
+        from models.room import pick_timer, PICK_TIMERS, Room
+        assert isinstance(room, Room)
+        p = DraftPick(key=key, player=player, index=len(self.draft))
+
+        self.position.pop(0)
+        self.draft.append(p)
+        if not self.position:
+            self.position = self.next_positions
+            self.next_positions = list(reversed(self.next_positions))
+
+        self.picked.add(key)
+
+        # if the draft is complete...
+        if len(self.draft) >= self.max_picks:
+            self.complete = True
+
+        if not update_draft(self, room.code):
+            raise HTTPException(
+                status_code=500, detail="Could not update draft internally..!"
+            )
+
+        if room.code in PICK_TIMERS:
+            PICK_TIMERS[room.code].cancel()
+
+        await mg.broadcast_room(
+            room,
+            DraftPickUpdate(
+                key=p.key,
+                player=p.player,
+                index=p.index,
+                positions=self.position,
+                next_positions=self.next_positions,
+            ),
+        )
+
+        if self.complete:
+            from models.ws import RoomUpdate, RoomUpdateEnum
+            await mg.broadcast_room(
+                room,
+                RoomUpdate(update=RoomUpdateEnum.draft_complete),
+            )
+            return
+
+        #### Only if not complete.
+        if room.config.enforce_timer:
+            import asyncio
+            asyncio.create_task(pick_timer(room))
+
+
     players: list[str] = list()
     draft: list[DraftPick] = list()
     position: list[str] = list()  # Current set of draft picks
     next_positions: list[str] = list()  # next set of draft picks
     picked: set[str] = set()
     complete: bool = False
+
+    gambits: dict[str, set[GambitKey]] = dict()
 
     # later? configure
     max_picks: int
@@ -536,8 +660,8 @@ async def get_status(request: Request) -> Draft:
 
 
 @rt.get("/draftables")
-async def get_draftables() -> tuple[list[DraftPool], dict[str, Draftable]]:
-    return (POOLS, DRAFTABLES)
+async def get_draftables() -> tuple[list[DraftPool], dict[str, Draftable], dict[str, Gambit]]:
+    return (POOLS, DRAFTABLES, GAMBITABLES)
 
 
 @rt.get("/download")
@@ -550,6 +674,14 @@ async def download_result(request: Request):
         raise HTTPException(status_code=403, detail="The draft is not complete.")
     p, n = get_datapack(uuid=user.uuid, username=user.source.username, code=room.code, draft=draft)
     return FileResponse(path=p, media_type='application/octet-stream', filename=n)
+
+
+@rt.get("/gambits")
+async def download_gambits(request: Request):
+    from db_utils import always_get_drafting_player
+    user, _, draft = always_get_drafting_player(request)
+    import json
+    return json.dumps(list(draft.get_gambits(user.uuid)))
 
 
 @rt.get("/worldgen")
@@ -568,11 +700,41 @@ async def download_worldgen(request: Request):
     return make_settings(ow, nt, en)
 
 
-@rt.post("/pick")
-async def do_pick(request: Request, key: str):
+async def update_gambit(request: Request, key: str, value: bool):
     from db_utils import always_get_drafting_player
     from room_manager import mg
     from rooms import update_draft
+
+    user, room, draft = always_get_drafting_player(request)
+    if key not in GAMBITABLES:
+        raise HTTPException(
+            status_code=404, detail=f"Draft pick {key} could not be found."
+        )
+    if draft.complete:
+        raise HTTPException(status_code=403, detail="Gambits cannot be updated after draft.")
+
+    if (key in draft.get_gambits(user.uuid)) == value:
+        return # They already enabled/disabled it :) We're gucci famerino
+
+    draft.set_gambit(user.uuid, key, value)
+
+    if not update_draft(draft, room.code):
+        raise HTTPException(
+            status_code=500, detail="Could not update draft internally..!"
+        )
+
+
+@rt.post("/gambit/enable")
+async def enable_gambit(request: Request, key: str):
+    return await update_gambit(request, key, True)
+@rt.post("/gambit/disable")
+async def disable_gambit(request: Request, key: str):
+    return await update_gambit(request, key, False)
+
+
+@rt.post("/pick")
+async def do_pick(request: Request, key: str):
+    from db_utils import always_get_drafting_player
 
     user, room, draft = always_get_drafting_player(request)
 
@@ -602,39 +764,5 @@ async def do_pick(request: Request, key: str):
                 raise HTTPException(
                     status_code=403, detail=f"Player has already picked the maximum number of picks for pool {pl.name.full_name}")
 
-    p = DraftPick(key=key, player=user.uuid, index=len(draft.draft))
-
-    draft.position.pop(0)
-    draft.draft.append(p)
-    if not draft.position:
-        draft.position = draft.next_positions
-        draft.next_positions = list(reversed(draft.next_positions))
-
-    draft.picked.add(key)
-
-    # if the draft is complete...
-    if len(draft.draft) >= draft.max_picks:
-        draft.complete = True
-
-    if not update_draft(draft, room.code):
-        raise HTTPException(
-            status_code=500, detail="Could not update draft internally..!"
-        )
-
-    await mg.broadcast_room(
-        room,
-        DraftPickUpdate(
-            key=p.key,
-            player=p.player,
-            index=p.index,
-            positions=draft.position,
-            next_positions=draft.next_positions,
-        ),
-    )
-
-    if draft.complete:
-        from models.ws import RoomUpdate, RoomUpdateEnum
-        await mg.broadcast_room(
-            room,
-            RoomUpdate(update=RoomUpdateEnum.draft_complete),
-        )
+    # Do the pick for this player.
+    await draft.execute_pick(key, user.uuid, room)

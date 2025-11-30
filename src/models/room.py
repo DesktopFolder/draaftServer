@@ -1,9 +1,11 @@
+from asyncio import Task
 from enum import Enum
 from pydantic import BaseModel
 from typing import Self, get_type_hints, Optional
 
 from models.api import APIError
 from draft import Draft
+from utils import LOG
 
 
 class RoomJoinState(str, Enum):
@@ -21,6 +23,7 @@ class RoomResult(RoomIdentifier):
     state: RoomJoinState
     members: list[str]
     drafting: bool = False
+    playing: bool = False
 
 
 class RoomJoinError(APIError):
@@ -96,6 +99,20 @@ class Room(BaseModel):
     def drafting(self) -> bool:
         return self.draft is not None and not self.draft.complete
 
+    def playing(self) -> bool:
+        return self.draft is not None and self.draft.complete
+
+    def start_timer(self):
+        import asyncio
+        if not self.config.enforce_timer:
+            return
+        asyncio.create_task(pick_timer(self, 10))
+
+    def num_picks(self):
+        if self.draft is not None:
+            return len(self.draft.draft)
+        return 0
+
     def set_drafting(self):
         from db import DB, cur
         from models.ws import serialize
@@ -132,4 +149,32 @@ class Room(BaseModel):
             state=state,
             members=list(self.members),
             drafting=self.drafting(),
+            playing=self.playing()
         )
+
+
+PICK_TIMERS: dict[str, Task] = {}
+async def pick_timer(room: Room, extra_seconds: int = 0):
+    import asyncio
+    if room.code in PICK_TIMERS:
+        PICK_TIMERS[room.code].cancel()
+    cur_task = asyncio.current_task()
+    if cur_task is not None:
+        PICK_TIMERS[room.code] = cur_task
+    
+    # Now sleep! :)
+    await asyncio.sleep(room.config.pick_time + extra_seconds)
+
+    # now we pick!
+    new_room = room.updated()
+    if new_room is None:
+        return
+    if room.num_picks() != new_room.num_picks():
+        # nothing doing
+        return
+
+    if new_room.draft is None:
+        LOG(f"{new_room} has no draft?!")
+        return
+    
+    await new_room.draft.random_pick(new_room)

@@ -96,6 +96,7 @@ def _generate_datapack(pack_id: str, uuid: str, username: str, draft: Draft):
             continue
         if pick.key not in DATAPACK:
             LOG(f'{pick.key} does not have a datapack object!')
+            continue
         LOG(f'Applying {pick.key} to player {pick.player}')
         o = DATAPACK[pick.key]
         for dt in o:
@@ -103,6 +104,14 @@ def _generate_datapack(pack_id: str, uuid: str, username: str, draft: Draft):
             _apply_datapack(gen_dir, username, dt)
         # apply onload & ontick
         _apply_generic(gen_dir, username, o)
+
+    for gb in draft.get_gambits(uuid):
+        if gb not in DATAPACK:
+            continue
+        gambit = DATAPACK[gb]
+        for dt in gambit:
+            _apply_datapack(gen_dir, username, dt)
+        _apply_generic(gen_dir, username, gambit)
 
     # it's done. now we generate the zip and remove the thing itself
     filename = f'{pack_id}.zip'

@@ -291,7 +291,7 @@ async def join_room(
     room.members.add(user.uuid)
 
     # If the room is already live
-    if room.drafting():
+    if room.drafting() or room.playing():
         await mg.update_status(room, user.uuid, PlayerActionEnum.spectate)
         insert_update_status(user.uuid, "spectate")
 
@@ -415,6 +415,7 @@ async def commence_room(request: Request):
 
     r.set_drafting()
     await mg.broadcast_room(r, RoomUpdate(update=RoomUpdateEnum.commenced))
+    r.start_timer()
 
 
 @app.get("/user")
