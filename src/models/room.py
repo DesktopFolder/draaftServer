@@ -19,13 +19,6 @@ class RoomIdentifier(BaseModel):
     code: str
 
 
-class RoomResult(RoomIdentifier):
-    state: RoomJoinState
-    members: list[str]
-    drafting: bool = False
-    playing: bool = False
-
-
 class RoomJoinError(APIError):
     pass
 
@@ -45,7 +38,7 @@ def check_type(k, v, data):
 
 class RoomConfig(BaseModel):
     enforce_timer: bool = False
-    pick_time: int = 15
+    pick_time: int = 30
     spectators_get_world: bool = False
     gambits: bool = True
     overworld_seed: int | None = None
@@ -55,7 +48,7 @@ class RoomConfig(BaseModel):
 
     def merge_config(self, other_config: dict) -> tuple[Self, set[str]]:
         import json
-        from models.ws import deserialize, serialize
+        from models.ws import serialize
 
         our_data: dict = json.loads(serialize(self))
         other_config = {
@@ -64,7 +57,7 @@ class RoomConfig(BaseModel):
             if check_type(k, v, our_data)
         }
         if not other_config:
-            return self
+            return self, set()
         for k, v in other_config.items():
             our_data[k] = v
         return RoomConfig(**our_data), set(other_config.keys())
@@ -143,17 +136,19 @@ class Room(BaseModel):
 
         return set([m for m in self.members if get_user_status(m) == "player"])
 
-    def as_result(self, state: RoomJoinState) -> RoomResult:
+    def as_result(self, state: RoomJoinState) -> 'RoomResult':
         return RoomResult(
             code=self.code,
             state=state,
             members=list(self.members),
             drafting=self.drafting(),
-            playing=self.playing()
+            playing=self.playing(),
+            room=self,
         )
 
 
 PICK_TIMERS: dict[str, Task] = {}
+BUFFER_PICK: int = 1
 async def pick_timer(room: Room, extra_seconds: int = 0):
     import asyncio
     if room.code in PICK_TIMERS:
@@ -163,7 +158,7 @@ async def pick_timer(room: Room, extra_seconds: int = 0):
         PICK_TIMERS[room.code] = cur_task
     
     # Now sleep! :)
-    await asyncio.sleep(room.config.pick_time + extra_seconds)
+    await asyncio.sleep(room.config.pick_time + extra_seconds + BUFFER_PICK)
 
     # now we pick!
     new_room = room.updated()
@@ -178,3 +173,11 @@ async def pick_timer(room: Room, extra_seconds: int = 0):
         return
     
     await new_room.draft.random_pick(new_room)
+
+
+class RoomResult(RoomIdentifier):
+    state: RoomJoinState
+    members: list[str]
+    drafting: bool = False
+    playing: bool = False
+    room: Room

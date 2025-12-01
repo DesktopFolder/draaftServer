@@ -255,7 +255,9 @@ async def create_room(request: Request) -> RoomResult:
     if rejoin_result is not None:
         return rejoin_result
     room_code = rooms.create(user.uuid)
-    return RoomResult(code=room_code, state=RoomJoinState.created, members=[user.uuid])
+    room = rooms.get_room_from_code(room_code)
+    assert room is not None
+    return RoomResult(code=room_code, state=RoomJoinState.created, members=[user.uuid], room=room)
 
 
 @app.post("/room/join")
@@ -414,7 +416,7 @@ async def commence_room(request: Request):
     LOG("Commencing room:", r.code)
 
     r.set_drafting()
-    await mg.broadcast_room(r, RoomUpdate(update=RoomUpdateEnum.commenced))
+    await mg.broadcast_room(r, RoomUpdate(update=RoomUpdateEnum.commenced, config=r.config))
     r.start_timer()
 
 
