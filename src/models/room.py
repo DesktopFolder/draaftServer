@@ -25,11 +25,22 @@ class RoomJoinError(APIError):
 
 # really really awkward that we seemingly have to do this.
 # workarounds are atrocious, basically.
-OPTIONALS = { 'overworld_seed': int, 'nether_seed': int, 'end_seed': int }
+OPTIONALS = { 'overworld_seed': str, 'nether_seed': str, 'end_seed': str }
+INTS = { 'max_gambits', 'pick_time' }
 
 
 def check_type(k, v, data):
+    if isinstance(v, str):
+        if len(v) > 64:
+            return False
+        if '\n' in v:
+            return False
+    import re
     if k not in data:
+        return False
+    if not isinstance(k, str):
+        return False
+    if (k.endswith('seed') or k in INTS) and (not isinstance(v, str) or re.match(r'^-?\d*$', v) is None):
         return False
     if k in OPTIONALS:
         return v is None or isinstance(v, OPTIONALS[k])
@@ -38,12 +49,15 @@ def check_type(k, v, data):
 
 class RoomConfig(BaseModel):
     enforce_timer: bool = False
-    pick_time: int = 30
+    pick_time: str = '30'
     spectators_get_world: bool = False
-    gambits: bool = True
-    overworld_seed: int | None = None
-    nether_seed: int | None = None
-    end_seed: int | None = None
+
+    enable_gambits: bool = True
+    max_gambits: str = '3'
+
+    overworld_seed: str | None = None
+    nether_seed: str | None = None
+    end_seed: str | None = None
 
 
     def merge_config(self, other_config: dict) -> tuple[Self, set[str]]:
@@ -56,6 +70,7 @@ class RoomConfig(BaseModel):
             for (k, v) in other_config.items()
             if check_type(k, v, our_data)
         }
+        print(other_config)
         if not other_config:
             return self, set()
         for k, v in other_config.items():
@@ -64,9 +79,9 @@ class RoomConfig(BaseModel):
 
 
 class RoomState(BaseModel):
-    overworld_seed: int | None = None
-    nether_seed: int | None = None
-    end_seed: int | None = None
+    overworld_seed: str | None = None
+    nether_seed: str | None = None
+    end_seed: str | None = None
 
     def start_draft(self):
         from seeds import get_overworld, get_nether, get_end
@@ -158,7 +173,7 @@ async def pick_timer(room: Room, extra_seconds: int = 0):
         PICK_TIMERS[room.code] = cur_task
     
     # Now sleep! :)
-    await asyncio.sleep(room.config.pick_time + extra_seconds + BUFFER_PICK)
+    await asyncio.sleep(int(room.config.pick_time) + extra_seconds + BUFFER_PICK)
 
     # now we pick!
     new_room = room.updated()

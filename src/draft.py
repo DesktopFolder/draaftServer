@@ -282,7 +282,16 @@ def _add_gambit(
     DATAPACK[key] = gens
 
 
+# Working (?) gambits
 _add_gambit("sealegs", "Seasickness", [CustomGranter(ontick="effect give {USERNAME} minecraft:nausea 3600\neffect give {USERNAME} minecraft:conduit_power 3600")], "You have constant conduit power / You have constant nausea")
+
+# TODO GAMBITS
+_add_gambit("hdwgh", "How DID We Get Here?!", [AdvancementGranter(advancement="nether/all_effects"), CustomGranter()], "You are granted the advancement \"How Did We Get Here\" / Your main inventory slots are removed (offhand and hotbar remain)")
+_add_gambit("debris", "Debris, Debris...", [CustomGranter()], "Your debris rates are extremely high / You are randomly granted junk items every 3-10 seconds")
+_add_gambit("rates", "Lucky Fool", [CustomGranter()], "Almost all loot is doubled / Your health points are halved")
+_add_gambit("nof3", "Mapful NoF3", [CustomGranter()], "You are given coordinates to the bastion, fortress, strongholds, and all rare biomes / You cannot use F3 for coordinates")
+_add_gambit("enchants", "Miner's Delight", [CustomGranter()], "All tools are enchanted with optimal enchantments at all times / The maximum level for all enchants (except piercing) is reduced to 1")
+_add_gambit("tnt", "Exploding Shells", [CustomGranter()], "Every five minutes, there is a 50% chance for a shell item to spawn on you / If this does not happen, a TNT spawns instead")
 
 
 def _add_draftable(d: Draftable, datapack: None | list[Datapack] = None):
@@ -706,6 +715,10 @@ async def update_gambit(request: Request, key: str, value: bool):
     from rooms import update_draft
 
     user, room, draft = always_get_drafting_player(request)
+
+    if not room.config.enable_gambits:
+        raise HTTPException(status_code=403, detail='Gambits are disabled for this room.')
+
     if key not in GAMBITABLES:
         raise HTTPException(
             status_code=404, detail=f"Draft pick {key} could not be found."
@@ -713,8 +726,12 @@ async def update_gambit(request: Request, key: str, value: bool):
     if draft.complete:
         raise HTTPException(status_code=403, detail="Gambits cannot be updated after draft.")
 
-    if (key in draft.get_gambits(user.uuid)) == value:
+    user_gambits = draft.get_gambits(user.uuid)
+    if (key in user_gambits) == value:
         return # They already enabled/disabled it :) We're gucci famerino
+
+    if value and len(user_gambits) >= int(room.config.max_gambits): # being set to true
+        raise HTTPException(status_code=403, detail='You have picked the maximum number of gambits already.')
 
     draft.set_gambit(user.uuid, key, value)
 

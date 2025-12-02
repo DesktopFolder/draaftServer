@@ -62,14 +62,14 @@ with open('.seeds/end_seeds.txt') as file:
     END_SEEDS: list[int] = load_seedlist(file)
 
 def get_overworld():
-    return choice(OVERWORLD_SEEDS)
+    return str(choice(OVERWORLD_SEEDS))
 def get_nether():
-    return choice(NETHER_SEEDS)
+    return str(choice(NETHER_SEEDS))
 def get_end():
-    return choice(END_SEEDS)
+    return str(choice(END_SEEDS))
 
-def make_settings(overworld: int, nether: int, end: int) -> str:
-    s_overworld = str(overworld)
-    s_nether = str(nether)
-    s_end = str(end)
+def make_settings(overworld: str, nether: str, end: str) -> str:
+    s_overworld = overworld
+    s_nether = nether
+    s_end = end
     return _settings.replace("%OVERWORLD%", s_overworld).replace("%NETHER%", s_nether).replace("%END%", s_end)
