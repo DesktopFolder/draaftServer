@@ -91,8 +91,23 @@ class Datapack:
     def custom_file(self) -> dict[str, str]:
         return {}
 
+    def features(self) -> list[str]:
+        return list()
+
     def description(self) -> str:
         return "error: bad description call"
+
+
+class FeatureGranter(Datapack):
+    def __init__(self, feature: str | list[str]):
+        if isinstance(feature, str):
+            self.features_ = [feature]
+        else:
+            self.features_ = feature
+
+    @override
+    def features(self) -> list[str]:
+        return self.features_
 
 
 class CustomGranter(Datapack):
@@ -286,12 +301,12 @@ def _add_gambit(
 _add_gambit("sealegs", "Seasickness", [CustomGranter(ontick="effect give {USERNAME} minecraft:nausea 3600\neffect give {USERNAME} minecraft:conduit_power 3600")], "You have constant conduit power / You have constant nausea")
 
 # TODO GAMBITS
-_add_gambit("hdwgh", "How DID We Get Here?!", [AdvancementGranter(advancement="nether/all_effects"), CustomGranter()], "You are granted the advancement \"How Did We Get Here\" / Your main inventory slots are removed (offhand and hotbar remain)")
-_add_gambit("debris", "Debris, Debris...", [CustomGranter()], "Your debris rates are extremely high / You are randomly granted junk items every 3-10 seconds")
-_add_gambit("rates", "Lucky Fool", [CustomGranter()], "Almost all loot is doubled / Your health points are halved")
-_add_gambit("nof3", "Mapful NoF3", [CustomGranter()], "You are given coordinates to the bastion, fortress, strongholds, and all rare biomes / You cannot use F3 for coordinates")
-_add_gambit("enchants", "Miner's Delight", [CustomGranter()], "All tools are enchanted with optimal enchantments at all times / The maximum level for all enchants (except piercing) is reduced to 1")
-_add_gambit("tnt", "Exploding Shells", [CustomGranter()], "Every five minutes, there is a 50% chance for a shell item to spawn on you / If this does not happen, a TNT spawns instead")
+_add_gambit("hdwgh", "How DID We Get Here?!", [AdvancementGranter(advancement="nether/all_effects"), FeatureGranter('NoInventory')], "You are granted the advancement \"How Did We Get Here\" / Your main inventory slots are removed (offhand and hotbar remain)")
+_add_gambit("debris", "Debris, Debris...", [FeatureGranter('DebrisRates')], "Your debris rates are extremely high / You are randomly granted junk items every 3-10 seconds")
+_add_gambit("lootrates", "Lucky Fool", [FeatureGranter('LootRates')], "Almost all loot is doubled / Your health points are halved")
+_add_gambit("nof3", "Mapful NoF3", [FeatureGranter('NoF3')], "You are given coordinates to the bastion, fortress, strongholds, and all rare biomes / You cannot use F3 for coordinates")
+_add_gambit("enchants", "Miner's Delight", [FeatureGranter('AllEnchanted')], "All tools are enchanted with optimal enchantments at all times / The maximum level for all enchants (except piercing) is reduced to 1")
+_add_gambit("tnt", "Exploding Shells", [FeatureGranter('TNTShells')], "Every five minutes, there is a 50% chance for a shell item to spawn on you / If this does not happen, a TNT spawns instead")
 
 
 def _add_draftable(d: Draftable, datapack: None | list[Datapack] = None):
@@ -327,7 +342,7 @@ def _add_multi(
 
 
 # Armour
-_add_multi("bucket", "bucket.png", [ItemGranter("bucket{Enchantments:[{}]}")], description="A fully-enchanted, max-tier bucket.")
+_add_multi("bucket", "bucket.png", [FeatureGranter('EnchantedBucket'), ItemGranter("bucket{Enchantments:[{}]}")], description="A fully-enchanted, max-tier bucket.")
 _add_multi("helmet", "helmet.gif", [EnchantedItemGranter("diamond_helmet", [("protection", 5), ("unbreaking", 3), ("aqua_affinity", 1), ("respiration", 3)])])
 _add_multi("chestplate", "chestplate.gif", [EnchantedItemGranter("diamond_chestplate", [("protection", 5), ("unbreaking", 3)])])
 _add_multi("leggings", "leggings.gif", [EnchantedItemGranter("diamond_leggings", [("protection", 5), ("unbreaking", 3)])])
@@ -681,7 +696,7 @@ async def download_result(request: Request):
     user, room, draft = always_get_drafting_player(request)
     if not draft.complete: 
         raise HTTPException(status_code=403, detail="The draft is not complete.")
-    p, n = get_datapack(uuid=user.uuid, username=user.source.username, code=room.code, draft=draft)
+    p, n = get_datapack(uuid=user.uuid, username=user.source.username, code=room.code, draft=draft, state=room.state)
     return FileResponse(path=p, media_type='application/octet-stream', filename=n)
 
 

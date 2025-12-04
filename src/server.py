@@ -16,6 +16,7 @@ from fastapi import (
 )
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import PlainTextResponse
+import seeds
 
 import db
 import rooms
