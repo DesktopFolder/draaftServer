@@ -59,6 +59,8 @@ class RoomConfig(BaseModel):
     nether_seed: str | None = None
     end_seed: str | None = None
 
+    restrict_players: list[str] = list()
+
 
     def merge_config(self, other_config: dict) -> tuple[Self, set[str]]:
         import json

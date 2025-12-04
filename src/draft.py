@@ -303,10 +303,10 @@ _add_gambit("sealegs", "Seasickness", [CustomGranter(ontick="effect give {USERNA
 # TODO GAMBITS
 _add_gambit("hdwgh", "How DID We Get Here?!", [AdvancementGranter(advancement="nether/all_effects"), FeatureGranter('NoInventory')], "You are granted the advancement \"How Did We Get Here\" / Your main inventory slots are removed (offhand and hotbar remain)")
 _add_gambit("debris", "Debris, Debris...", [FeatureGranter('DebrisRates')], "Your debris rates are extremely high / You are randomly granted junk items every 3-10 seconds")
-_add_gambit("lootrates", "Lucky Fool", [FeatureGranter('LootRates')], "Almost all loot is doubled / Your health points are halved")
-_add_gambit("nof3", "Mapful NoF3", [FeatureGranter('NoF3')], "You are given coordinates to the bastion, fortress, strongholds, and all rare biomes / You cannot use F3 for coordinates")
+_add_gambit("lootrates", "Lucky Fool", [], "Almost all loot is doubled / Your health points are halved")
+_add_gambit("nof3", "Mapful NoF3", [CustomGranter(onload="gamerule reducedDebugInfo true")], "You are given coordinates to the bastion, fortress, strongholds, and all rare biomes / You cannot use F3 for coordinates")
 _add_gambit("enchants", "Miner's Delight", [FeatureGranter('AllEnchanted')], "All tools are enchanted with optimal enchantments at all times / The maximum level for all enchants (except piercing) is reduced to 1")
-_add_gambit("tnt", "Exploding Shells", [FeatureGranter('TNTShells')], "Every five minutes, there is a 50% chance for a shell item to spawn on you / If this does not happen, a TNT spawns instead")
+_add_gambit("tnt", "Exploding Shells", [], "Every five minutes, there is a 50% chance for a shell item to spawn on you / If this does not happen, a TNT spawns instead")
 
 
 def _add_draftable(d: Draftable, datapack: None | list[Datapack] = None):
