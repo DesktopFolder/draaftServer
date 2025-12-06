@@ -1,6 +1,7 @@
 from pydantic import BaseModel, Field, ValidationError
 from typing import Literal, TypeVar, Union, Type
 from enum import Enum
+from re import compile
 
 from models.room import RoomConfig
 
@@ -63,9 +64,32 @@ class ActionError(BaseModel):
     variant: Literal['error'] = 'error'
     text: str
 
+
+ADVANCEMENT_REGEX = compile(r'minecraft:(.*)')
+class AdvancementUpdate(BaseModel):
+    variant: Literal['AdvancementUpdate'] = 'AdvancementUpdate'
+    advancement: str
+
+    def as_vanilla_advancement(self) -> None | str:
+        from re import match
+        mo = match(ADVANCEMENT_REGEX, self.advancement)
+        if mo is None:
+            return None
+        o = mo.group(1)
+        if o.startswith('recipe'):
+            return None
+        return o
+
+
+class PlayerAdvancementUpdate(BaseModel):
+    variant: Literal['PlayerAdvancementUpdate'] = 'PlayerAdvancementUpdate'
+    uuid: str # the player that this update is for
+    latest_advancement: str # the advancement that caused this update
+    count: int # total advancement count
+    
 # Received by the server, so RoomStatus is not valid (we only send those)
 class WebSocketMessage(BaseModel):
-    message: Union[Heartbeat, RoomAction, PlayerAction] = Field(discriminator='variant')
+    message: Union[Heartbeat, RoomAction, PlayerAction, AdvancementUpdate] = Field(discriminator='variant')
 
     @staticmethod
     def deserialize(data: str) -> 'WebSocketMessage | None':

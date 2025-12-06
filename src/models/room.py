@@ -85,6 +85,8 @@ class RoomState(BaseModel):
     nether_seed: str | None = None
     end_seed: str | None = None
 
+    player_advancements: dict[str, set[str]] = dict()
+
     def start_draft(self):
         from seeds import get_overworld, get_nether, get_end
         if self.overworld_seed is None:
@@ -124,24 +126,33 @@ class Room(BaseModel):
         return 0
 
     def set_drafting(self):
-        from db import DB, cur
+        from db import sql
         from models.ws import serialize
         from sqlite3 import IntegrityError
 
         self.state.start_draft()
 
         try:
-            cur.execute(
-                "UPDATE rooms SET draft = CASE WHEN draft IS NULL THEN ? ELSE draft END WHERE code = ?",
-                (serialize(Draft.from_players(self.get_players())), self.code),
-            )
+            with sql as cur:
+                cur.execute(
+                    "UPDATE rooms SET draft = CASE WHEN draft IS NULL THEN ? ELSE draft END WHERE code = ?",
+                    (serialize(Draft.from_players(self.get_players())), self.code),
+                )
+                cur.execute(
+                    "UPDATE rooms SET state = ? WHERE code = ?",
+                    (serialize(self.state), self.code),
+                )
+        except IntegrityError:
+            pass
+
+    def save_state(self):
+        from db import sql
+        from models.ws import serialize
+        with sql as cur:
             cur.execute(
                 "UPDATE rooms SET state = ? WHERE code = ?",
                 (serialize(self.state), self.code),
             )
-            DB.commit()
-        except IntegrityError:
-            pass
 
     def updated(self):
         from rooms import get_room_from_code

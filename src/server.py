@@ -49,6 +49,7 @@ from utils import get_user_from_request, validate_mojang_session, LOG, persisten
 import sys
 from room_manager import mg
 from draft import rt
+from game import rt as game_router
 
 setup_sqlite()
 setup_datapack_caching()
@@ -70,6 +71,7 @@ if DEV_MODE_NO_AUTHENTICATE and "dev" not in sys.argv:
 
 app = FastAPI()
 app.include_router(rt)
+app.include_router(game_router)
 
 ################## Middlewares #####################
 
@@ -206,10 +208,10 @@ async def handle_room_rejoin(
             LOG("...Room was timed out.")
             user.room_code = None
             # Update this in the DB as well.
-            db.cur.execute(
-                f"UPDATE users SET room_code = NULL WHERE uuid IN (?)", (user.uuid,)
-            )
-            db.DB.commit()
+            with db.sql as cur:
+                cur.execute(
+                    f"UPDATE users SET room_code = NULL WHERE uuid IN (?)", (user.uuid,)
+                )
             if cb is not None:
                 return await cb()
             return None
@@ -450,6 +452,7 @@ async def websocket_endpoint(*, websocket: WebSocket, token: str):
     try:
         while True:
             data = await websocket.receive_text()
+            print('Got websocket data:', data)
             message = WebSocketMessage.deserialize(data)
             if message is not None:
                 await handle_websocket_message(websocket, message, full_user)
