@@ -5,6 +5,7 @@ from typing_extensions import override
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from fastapi import APIRouter, HTTPException, Request, Response
+from datetime import date
 
 from utils import LOG
 
@@ -224,6 +225,49 @@ class ItemGranter(Datapack):
         return f"Gives {self.count} {self.desc_item}s"
 
 
+# give @s stick{display:{Name:"{\"text\": \"test\", \"italic\": false}"}} 1
+class RandomItemGranter(Datapack):
+    def __init__(self, l: list[tuple[str, int] | tuple[str, int, float]], title: dict[str, str] | None = None):
+        totalprob = 0.0
+        others = 0.0
+        for c in l:
+            if len(c) == 3:
+                totalprob += c[2]
+            else:
+                others += 1.0
+
+        default_prob = (1.0 - totalprob) / others
+
+        self.title = title
+
+        self.options: list[tuple[str, int]] = list()
+        self.weights: list[float] = list()
+
+        for o in l:
+            if len(o) == 3:
+                n, c, prob = o
+            else:
+                n, c = o
+                prob = default_prob
+            self.options.append((n, c))
+            self.weights.append(prob)
+
+    @override
+    def onload(self, user: str) -> str:
+        from random import choices
+        name, count = choices(population=self.options, weights=self.weights)[0]
+
+        root = f"give {user} {name} {count}"
+        if self.title:
+            t = self.title.get(name)
+            if t is None:
+                t = self.title.get("__default")
+            if t is not None:
+                root = 'title ' + user + ' title {"text":"' + t + '"}\n' + root
+
+        return root
+
+
 class EnchantedItemGranter(Datapack):
     def __init__(self, item: str, enchants: list[tuple[str, int]]):
         self.item = item
@@ -303,10 +347,23 @@ _add_gambit("sealegs", "Seasickness", [CustomGranter(ontick="effect give {USERNA
 # TODO GAMBITS
 _add_gambit("hdwgh", "How DID We Get Here?!", [AdvancementGranter(advancement="nether/all_effects"), FeatureGranter('NoInventory')], "You are granted the advancement \"How Did We Get Here\" / Your main inventory slots are removed (offhand and hotbar remain)")
 _add_gambit("debris", "Debris, Debris...", [FeatureGranter('DebrisRates')], "Your debris rates are extremely high / You are randomly granted junk items every 3-10 seconds")
-_add_gambit("lootrates", "Lucky Fool", [], "Almost all loot is doubled / Your health points are halved")
+_add_gambit("lootrates", "Lucky Fool", [CustomGranter(ontick="effect give {USERNAME} minecraft:luck 3600")], "Almost all loot is doubled / Your health points are halved")
 _add_gambit("nof3", "Mapful NoF3", [CustomGranter(onload="gamerule reducedDebugInfo true")], "You are given coordinates to the bastion, fortress, strongholds, and all rare biomes / You cannot use F3 for coordinates")
 _add_gambit("enchants", "Miner's Delight", [FeatureGranter('AllEnchanted')], "All tools are enchanted with optimal enchantments at all times / The maximum level for all enchants (except piercing) is reduced to 1")
 _add_gambit("tnt", "Exploding Shells", [], "Every five minutes, there is a 50% chance for a shell item to spawn on you / If this does not happen, a TNT spawns instead")
+
+if date.today().day > 1 and date.today().month == 12:
+    _add_gambit("santa", "Santa's Surprise", [RandomItemGranter([
+                                                    ('coal{display:{Name:"\\"be better.\\""}}', 3, 0.5),
+                                                    ('diamond{display:{Name:"\\"Joyeux Noël\\""}}', 1, 0.05),
+                                                    ('gold{display:{Name:"\\"Ornaments\\""}}', 2),
+                                                    ('lapis{display:{Name:"\\"Christmas gift!\\""}}', 8),
+                                                    ('cooked_salmon{display:{Name:"\\"Holiday meal!\\""}}', 2),
+                                                    ('spruce_sapling{display:{Name:"\\"Christmas Trees!\\""}}', 7),
+                                                    ('leather_helmet{display:{color:11546150,Name:"\\"Santa\'s Hat\\""}}', 1)
+                                                    ], {"coal": "Naughty!", "__default": "Nice :)"}
+                                              ),
+                                             ], "Get a surprise if you've been nice! / Only coal if you've been naughty...")
 
 
 def _add_draftable(d: Draftable, datapack: None | list[Datapack] = None):
@@ -606,6 +663,11 @@ class Draft(BaseModel):
         await self.execute_pick(k, uuid, room)
 
 
+    async def do_skip(self, room):
+        if self.position and self.position[0] in self.skip_players and not self.complete:
+            await self.random_pick(room)
+
+
     async def execute_pick(self, key: str, player: str, room):
         from room_manager import mg
         from rooms import update_draft
@@ -652,6 +714,9 @@ class Draft(BaseModel):
             )
             return
 
+        if self.position and self.position[0] in self.skip_players:
+            return await self.do_skip(room)
+
         #### Only if not complete.
         if room.config.enforce_timer:
             import asyncio
@@ -659,6 +724,7 @@ class Draft(BaseModel):
 
 
     players: list[str] = list()
+    skip_players: set[str] = set()
     draft: list[DraftPick] = list()
     position: list[str] = list()  # Current set of draft picks
     next_positions: list[str] = list()  # next set of draft picks

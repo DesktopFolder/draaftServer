@@ -305,6 +305,7 @@ async def join_room(
 
 @app.post("/room/leave")
 async def leave_room(request: Request):
+    from rooms import update_draft, destroy_room
     user = get_user_from_request(request)
     assert user
     rm = rooms.get_user_room_code(user.uuid)
@@ -316,13 +317,29 @@ async def leave_room(request: Request):
         LOG(f"Error: Could not get room from id {rm}")
         return
     isadmin = room.admin == user.uuid
-    if isadmin:
+
+    # ONLY delete the room for admins IFF draft is None
+    if isadmin and room.draft is None:
         await mg.broadcast_room(room, RoomUpdate(update=RoomUpdateEnum.closed))
     else:
         await mg.broadcast_room(
             room, PlayerUpdate(uuid=user.uuid, action=PlayerActionEnum.leave)
         )
-    rooms.remove_room_member(user.uuid)
+    rooms.remove_room_member(user.uuid, room.draft is not None)
+
+    if room.draft is not None:
+        if user.uuid in room.draft.players:
+            room.draft.skip_players.add(user.uuid)
+            # Update it here so we don't do it later
+            update_draft(room.draft, room.code)
+
+            # DESTROY THE ROOM IF EVERYONE LEAVES
+            if all([p in room.draft.skip_players for p in room.draft.players]):
+                destroy_room(room.code)
+                await mg.broadcast_room(room, RoomUpdate(update=RoomUpdateEnum.closed))
+                return # Return, don't do more logic
+
+            await room.draft.do_skip(room)
 
 
 @app.post("/room/kick")

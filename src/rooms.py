@@ -5,6 +5,7 @@ from draft import Draft
 
 from models.room import Room, RoomConfig, RoomState
 from models.ws import deserialize, serialize
+from utils import LOG
 
 
 def generate_code() -> str:
@@ -76,9 +77,10 @@ def update_draft(draft: Draft, code: str) -> bool:
 
     """ Adds a user to a room by room code. Returns True on success, False on failure (room not found or other db issue) """
     try:
+        draft_ser = serialize(draft)
         with sql as cur:
             cur.execute(
-                "UPDATE rooms SET draft = ? WHERE code = ?", (serialize(draft), code)
+                "UPDATE rooms SET draft = ? WHERE code = ?", (draft_ser, code)
             )
         return True
     except IntegrityError:
@@ -97,7 +99,7 @@ def add_room_member(room_code: str, uuid: str) -> bool:
         return False
 
 
-def remove_room_member(uuid: str) -> bool:
+def remove_room_member(uuid: str, allow_no_admin: bool = False) -> bool:
     from db import sql
 
     """
@@ -107,7 +109,7 @@ def remove_room_member(uuid: str) -> bool:
     if rm is None:
         return False  # Some error!
     try:
-        if rm.admin == uuid:
+        if rm.admin == uuid and not allow_no_admin:
             uuids = list(rm.members)
             # Destroy the room
             with sql as cur:
@@ -120,6 +122,25 @@ def remove_room_member(uuid: str) -> bool:
         return True
     except IntegrityError:
         return False
+
+
+def destroy_room(code: str):
+    from db import sql
+    rm = get_room_from_code(code)
+    if rm is None:
+        return
+
+    try:
+        uuids = list(rm.members)
+        # Destroy the room
+        with sql as cur:
+            cur.execute("DELETE FROM rooms WHERE code = ?", (rm.code,))
+        # Remove all its members
+        fmt = ",".join("?" * len(uuids))
+        with sql as cur:
+            cur.execute(f"UPDATE users SET room_code = NULL WHERE uuid IN ({fmt})", uuids)
+    except IntegrityError:
+        LOG(f"Failed to destroy room: {code}")
 
 
 def get_user_room_code(uuid: str) -> str | None:

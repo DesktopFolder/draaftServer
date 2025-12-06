@@ -48,7 +48,12 @@ class RoomUpdateEnum(str, Enum):
     closed = 'closed'
     config = 'config'
     commenced = 'commenced'
+
+    # when the last pick is done
     draft_complete = 'draft_complete'
+
+    # when all clients report they are ready to play
+    loading_complete = 'loading_complete'
 
 class RoomUpdate(BaseModel):
     variant: Literal['roomupdate'] = 'roomupdate'

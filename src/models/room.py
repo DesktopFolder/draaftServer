@@ -133,14 +133,16 @@ class Room(BaseModel):
         self.state.start_draft()
 
         try:
+            draft = serialize(Draft.from_players(self.get_players()))
+            state = serialize(self.state)
             with sql as cur:
                 cur.execute(
                     "UPDATE rooms SET draft = CASE WHEN draft IS NULL THEN ? ELSE draft END WHERE code = ?",
-                    (serialize(Draft.from_players(self.get_players())), self.code),
+                    (draft, self.code),
                 )
                 cur.execute(
                     "UPDATE rooms SET state = ? WHERE code = ?",
-                    (serialize(self.state), self.code),
+                    (state, self.code),
                 )
         except IntegrityError:
             pass
@@ -148,10 +150,11 @@ class Room(BaseModel):
     def save_state(self):
         from db import sql
         from models.ws import serialize
+        state = serialize(self.state)
         with sql as cur:
             cur.execute(
                 "UPDATE rooms SET state = ? WHERE code = ?",
-                (serialize(self.state), self.code),
+                (state, self.code),
             )
 
     def updated(self):
