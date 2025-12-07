@@ -115,7 +115,7 @@ def _apply_generic(loc: str, username: str, dts: list[Datapack]):
 
 
 def _generate_datapack(pack_id: str, uuid: str, username: str, draft: Draft, state: RoomState):
-    from draft import DATAPACK
+    from draft import DATAPACK, DRAFTABLES, DraftPick
     import shutil
     from os.path import join, isdir
 
@@ -128,8 +128,18 @@ def _generate_datapack(pack_id: str, uuid: str, username: str, draft: Draft, sta
 
     all_player_datapack_objects = list()
 
+    # shared picks
+    picked_objects = set([p.key for p in draft.draft])
+    picks_here = list(draft.draft)
+
+    if len(draft.players) > 1:
+        for dkey in DRAFTABLES.keys():
+            if dkey not in picked_objects:
+                picks_here.append(DraftPick(key=dkey, player=uuid, index=0))
+
+
     # draft application: find all the picks for this player
-    for pick in draft.draft:
+    for pick in picks_here:
         if pick.player != uuid:
             continue
         if pick.key not in DATAPACK:
