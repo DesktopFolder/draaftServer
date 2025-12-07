@@ -1,0 +1,32 @@
+{
+  "display": {
+    "icon": {
+      "item": "minecraft:conduit"
+    },
+    "title": "You Conduit!",
+    "description": "Mine a Conduit after placing it sub-optimally",
+    "frame": "challenge",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": true
+  },
+  "parent": "minecraft:adventure/kill_a_mob",
+  "criteria": {
+    "enchant_item": {
+      "trigger": "minecraft:location",
+      "conditions": {
+        "player": {
+          "player": {
+            "stats": [
+              {
+                "type": "minecraft:mined",
+                "stat": "minecraft:conduit",
+                "value": 1
+              }
+            ]
+          }
+        }
+      }
+    }
+  }
+}

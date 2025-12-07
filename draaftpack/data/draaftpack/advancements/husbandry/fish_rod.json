@@ -1,0 +1,26 @@
+{
+    "display": {
+        "icon": {
+            "item": "minecraft:fishing_rod",
+            "nbt": "{Enchantments:[{id:\"luck_of_the_sea\"}]}"
+        },
+        "title": "Fishing (a) Rod",
+        "description": "Catch a blaze rod",
+        "frame": "challenge",
+        "show_toast": true,
+        "announce_to_chat": true,
+        "hidden": true
+    },
+    "parent": "minecraft:husbandry/fishy_business",	
+    "criteria": {
+        "rod": {
+            "trigger": "minecraft:fishing_rod_hooked",
+            "conditions": {
+                "item":
+                {
+                    "item": "minecraft:blaze_rod"
+                }
+            }
+        }
+    }
+}

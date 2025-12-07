@@ -9,6 +9,10 @@ def nolog(*_, **__):
 LOG = print
 
 
+class IndentLog:
+    def __call__(self, *args, **kwargs):
+        LOG(" ", *args, **kwargs)
+
 async def validate_mojang_session(username: str, serverID: str):
     uri = getSessionCheckURI(username, serverID)
     if uri is None:
@@ -21,6 +25,21 @@ async def validate_mojang_session(username: str, serverID: str):
     if 'id' not in resp_data or 'name' not in resp_data:
         return {"success": False, "error": f"your JSON sucks ({json.dumps(resp_data)}), try harder"}
     return {"success": True, "data": resp_data}
+
+
+async def ratelimited_username_to_uuid(username: str):
+    if not valid_username(username):
+        return None
+    async with aiohttp.ClientSession() as session:
+        async with session.get(f"https://api.mojang.com/users/profiles/minecraft/{username}") as resp:
+            if resp.status != 200:
+                return None
+            resp_data = await resp.json()
+    uuid = resp_data["id"]
+    if not isinstance(uuid, str):
+        return None
+    return uuid
+
 
 
 def get_user_from_request(request) -> LoggedInUser | None:

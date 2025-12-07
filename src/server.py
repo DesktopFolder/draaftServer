@@ -1,44 +1,77 @@
 from random import choice
 import time
 from typing import Any, Callable, Coroutine
+from datapack_utils import setup_datapack_caching
 
 import jwt
-from fastapi import Body, FastAPI, Request, Response, WebSocketDisconnect, status, WebSocket
+from fastapi import (
+    Body,
+    FastAPI,
+    HTTPException,
+    Request,
+    Response,
+    WebSocketDisconnect,
+    status,
+    WebSocket,
+)
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import PlainTextResponse
+import seeds
 
 import db
 import rooms
-from db import get_admin_from_request, get_user_status, insert_update_status, insert_user, setup_sqlite
-from models.api import (APIError, AuthenticationFailure,
-                        AuthenticationResult, AuthenticationSuccess, api_error)
-from models.generic import LoggedInUser, MojangInfo
-from models.room import (Room, RoomIdentifier, RoomJoinError, RoomJoinState,
-                         RoomResult)
-from models.ws import PlayerActionEnum, PlayerUpdate, RoomUpdate, RoomUpdateEnum, WebSocketMessage, serialize
+from db import (
+    get_admin_from_request,
+    get_admin_in_unstarted_room,
+    get_user_status,
+    insert_update_status,
+    insert_user,
+    setup_sqlite,
+)
+from models.api import (
+    APIError,
+    AuthenticationFailure,
+    AuthenticationResult,
+    AuthenticationSuccess,
+    api_error,
+)
+from models.generic import LoggedInUser, MojangInfo, UserSettings
+from models.room import Room, RoomIdentifier, RoomJoinError, RoomJoinState, RoomResult
+from models.ws import (
+    PlayerActionEnum,
+    PlayerUpdate,
+    RoomUpdate,
+    RoomUpdateEnum,
+    WebSocketMessage,
+    serialize,
+)
 from utils import get_user_from_request, validate_mojang_session, LOG, persistent_token
 import sys
 from room_manager import mg
+from draft import rt
+from game import rt as game_router
 
 setup_sqlite()
+setup_datapack_caching()
 
-JWT_SECRET = persistent_token(32, 'JWT_SECRET')
+JWT_SECRET = persistent_token(32, "JWT_SECRET")
 JWT_ALGORITHM = "HS256"
-ALLOW_DEV = 'dev' in sys.argv
+ALLOW_DEV = "dev" in sys.argv
 DEV_MODE_NO_AUTHENTICATE = False and ALLOW_DEV
 DEV_MODE_WEIRD_ENDPOINTS = True and ALLOW_DEV
 
-if DEV_MODE_WEIRD_ENDPOINTS and 'dev' not in sys.argv:
-    raise RuntimeError(f'Do not deploy without setting dev mode to False!')
-if DEV_MODE_NO_AUTHENTICATE and 'dev' not in sys.argv:
-    raise RuntimeError(f'Do not deploy without setting dev mode to False!')
+if DEV_MODE_WEIRD_ENDPOINTS and "dev" not in sys.argv:
+    raise RuntimeError(f"Do not deploy without setting dev mode to False!")
+if DEV_MODE_NO_AUTHENTICATE and "dev" not in sys.argv:
+    raise RuntimeError(f"Do not deploy without setting dev mode to False!")
 
 # https://pyjwt.readthedocs.io/en/stable/
 # https://sessionserver.mojang.com/session/minecraft/hasJoined?username=DesktopFolder&serverId=draaft2025server
 
 
 app = FastAPI()
-
+app.include_router(rt)
+app.include_router(game_router)
 
 ################## Middlewares #####################
 
@@ -47,7 +80,7 @@ def token_to_user(token: str) -> LoggedInUser:
     payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
     user = db.get_user(username=payload["username"], uuid=payload["uuid"])
     if user is None:
-        raise RuntimeError('could not make user')
+        raise RuntimeError("could not make user")
     return user
 
 
@@ -55,10 +88,12 @@ PUBLIC_ROUTES = {
     "/",
     "/authenticate",
     "/version",
+    "/dev/becomeuser"
 }
-if 'dev' in sys.argv:
+if "dev" in sys.argv:
     PUBLIC_ROUTES.add("/docs")
     PUBLIC_ROUTES.add("/openapi.json")
+    PUBLIC_ROUTES.add("/dev/becomeuser")
 
 
 @app.middleware("http")
@@ -83,10 +118,11 @@ async def check_valid(request: Request, call_next):
 
     return await call_next(request)
 
-if 'dev' in sys.argv:
-    allow_origins = ('*')
+
+if "dev" in sys.argv:
+    allow_origins = "*"
 else:
-    allow_origins = ('https://disrespec.tech', 'https://api.disrespec.tech')
+    allow_origins = ("https://disrespec.tech", "https://api.disrespec.tech")
 
 app.add_middleware(
     CORSMiddleware,
@@ -99,30 +135,36 @@ app.add_middleware(
 
 ################### Routes #####################
 def make_fake_user(uuid: str, username: str):
-    insert_user(username=username, uuid=uuid)
+    return insert_user(username=username, uuid=uuid)
+
 
 if DEV_MODE_NO_AUTHENTICATE:
+
     @app.get("/authenticate")
-    async def authenticate_no_auth(uuid: str|None = None, username: str|None = None) -> AuthenticationResult:
+    async def authenticate_no_auth(
+        uuid: str | None = None, username: str | None = None
+    ) -> AuthenticationResult:
         if uuid is None:
             # Look, it's simple and easy
-            uuid = 'uuid1a52730a4b4dadb7d1ea6' + rooms.generate_code()
+            uuid = "uuid1a52730a4b4dadb7d1ea6" + rooms.generate_code()
         if username is None:
-            username = 'tester' + rooms.generate_code()
+            username = "tester" + rooms.generate_code()
         # JWT payload
         payload = {
             "username": username,
             "uuid": uuid,
-            "serverID": 'draafttestserver',
+            "serverID": "draafttestserver",
             "iat": int(time.time()),
-            "exp": int(time.time()) + 60 * 60 * 24  # 24 hours expiry
+            "exp": int(time.time()) + 60 * 60 * 24,  # 24 hours expiry
         }
 
         token = jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
         # add user to db if not exists
-        make_fake_user(payload['uuid'], payload['username'])
+        make_fake_user(payload["uuid"], payload["username"])
         return AuthenticationSuccess(token=token)
+
 else:
+
     @app.post("/authenticate")
     async def authenticate(mi: MojangInfo) -> AuthenticationResult:
         result = await validate_mojang_session(mi.username, mi.serverID)
@@ -132,16 +174,16 @@ else:
 
         # JWT payload
         payload = {
-            "username": resp_data['name'],
-            "uuid": resp_data['id'],
+            "username": resp_data["name"],
+            "uuid": resp_data["id"],
             "serverID": mi.serverID,
             "iat": int(time.time()),
-            "exp": int(time.time()) + 60 * 60 * 24  # 24 hours expiry
+            "exp": int(time.time()) + 60 * 60 * 24,  # 24 hours expiry
         }
 
         token = jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
         # add user to db if not exists
-        insert_user(username=resp_data['name'], uuid=resp_data['id'])
+        insert_user(username=resp_data["name"], uuid=resp_data["id"])
         return AuthenticationSuccess(token=token)
 
 
@@ -149,12 +191,15 @@ else:
 async def is_authenticated():
     return True
 
+
 @app.get("/version")
 async def server_version():
-    return 1 # Version 1 until public beta
+    return 1  # Version 1 until public beta
 
 
-async def handle_room_rejoin(user: LoggedInUser, cb: Callable[[], Coroutine[Any, Any, RoomResult]] | None) -> RoomResult | None:
+async def handle_room_rejoin(
+    user: LoggedInUser, cb: Callable[[], Coroutine[Any, Any, RoomResult]] | None
+) -> RoomResult | None:
     if user.room_code is not None:
         LOG("User had room code...")
         room = rooms.get_room_from_code(user.room_code)
@@ -163,16 +208,18 @@ async def handle_room_rejoin(user: LoggedInUser, cb: Callable[[], Coroutine[Any,
             LOG("...Room was timed out.")
             user.room_code = None
             # Update this in the DB as well.
-            db.cur.execute(f"UPDATE users SET room_code = NULL WHERE uuid IN (?)", (user.uuid,))
-            db.DB.commit()
+            with db.sql as cur:
+                cur.execute(
+                    f"UPDATE users SET room_code = NULL WHERE uuid IN (?)", (user.uuid,)
+                )
             if cb is not None:
                 return await cb()
             return None
         # if user.uuid in room.members:
         #     return None  # User is still in room. Shouldn't happen, but just in case
         if user.uuid == room.admin:
-            return RoomResult(code=room.code, state=RoomJoinState.rejoined_as_admin, members=list(room.members))
-        return RoomResult(code=room.code, state=RoomJoinState.rejoined, members=list(room.members))
+            return room.as_result(state=RoomJoinState.rejoined_as_admin)
+        return room.as_result(state=RoomJoinState.rejoined)
     else:
         LOG("User did not have room code...")
     return None
@@ -185,11 +232,19 @@ async def get_room(request: Request, response: Response) -> Room | APIError:
     assert user
     print(f"Got user: {user}")
     if user.room_code is None:
-        return api_error(APIError(error_message="no room code found for user"), response, status.HTTP_404_NOT_FOUND)
+        return api_error(
+            APIError(error_message="no room code found for user"),
+            response,
+            status.HTTP_404_NOT_FOUND,
+        )
     room = rooms.get_room_from_code(user.room_code)
     print(f"Got room: {room}")
     if room is None:
-        return api_error(APIError(error_message="no room found for user's room code"), response, status.HTTP_404_NOT_FOUND)
+        return api_error(
+            APIError(error_message="no room found for user's room code"),
+            response,
+            status.HTTP_404_NOT_FOUND,
+        )
     return room
 
 
@@ -203,11 +258,15 @@ async def create_room(request: Request) -> RoomResult:
     if rejoin_result is not None:
         return rejoin_result
     room_code = rooms.create(user.uuid)
-    return RoomResult(code=room_code, state=RoomJoinState.created, members=[user.uuid])
+    room = rooms.get_room_from_code(room_code)
+    assert room is not None
+    return RoomResult(code=room_code, state=RoomJoinState.created, members=[user.uuid], room=room)
 
 
 @app.post("/room/join")
-async def join_room(request: Request, response: Response, room_code: RoomIdentifier) -> RoomResult | RoomJoinError:
+async def join_room(
+    request: Request, response: Response, room_code: RoomIdentifier
+) -> RoomResult | RoomJoinError:
     user = get_user_from_request(request)
     assert user
     rejoin_result = await handle_room_rejoin(user, None)
@@ -217,20 +276,36 @@ async def join_room(request: Request, response: Response, room_code: RoomIdentif
     LOG("Fresh room join from user", user.username)
     room = rooms.get_room_from_code(room_code.code)
     if room is None:
-        return api_error(RoomJoinError(error_message=f"no such room: {room_code.code}"), response)
+        return api_error(
+            RoomJoinError(error_message=f"no such room: {room_code.code}"), response
+        )
     # User can join this room! room room room room HAAHAHAAHA TAKE THAT YOU ROOMS
     user.room_code = room_code.code
     addUserAttempt = rooms.add_room_member(room_code.code, user.uuid)
     if not addUserAttempt:
         # At some point we might want to differentiate these errors (i.e. room full vs other)
-        return api_error(RoomJoinError(error_message=f"could not add user to room: {room_code.code}"), response)
-    await mg.broadcast_room(room, PlayerUpdate(uuid=user.uuid, action=PlayerActionEnum.joined))
+        return api_error(
+            RoomJoinError(
+                error_message=f"could not add user to room: {room_code.code}"
+            ),
+            response,
+        )
+    await mg.broadcast_room(
+        room, PlayerUpdate(uuid=user.uuid, action=PlayerActionEnum.joined)
+    )
     room.members.add(user.uuid)
-    return RoomResult(code=room_code.code, state=RoomJoinState.joined, members=list(room.members))
+
+    # If the room is already live
+    if room.drafting() or room.playing() or (room.config.restrict_players and user.uuid not in room.config.restrict_players):
+        await mg.update_status(room, user.uuid, PlayerActionEnum.spectate)
+        insert_update_status(user.uuid, "spectate")
+
+    return room.as_result(state=RoomJoinState.joined)
 
 
 @app.post("/room/leave")
 async def leave_room(request: Request):
+    from rooms import update_draft, destroy_room
     user = get_user_from_request(request)
     assert user
     rm = rooms.get_user_room_code(user.uuid)
@@ -242,11 +317,30 @@ async def leave_room(request: Request):
         LOG(f"Error: Could not get room from id {rm}")
         return
     isadmin = room.admin == user.uuid
-    if isadmin:
+
+    # ONLY delete the room for admins IFF draft is None
+    if isadmin and room.draft is None:
         await mg.broadcast_room(room, RoomUpdate(update=RoomUpdateEnum.closed))
     else:
-        await mg.broadcast_room(room, PlayerUpdate(uuid=user.uuid, action=PlayerActionEnum.leave))
-    rooms.remove_room_member(user.uuid)
+        await mg.broadcast_room(
+            room, PlayerUpdate(uuid=user.uuid, action=PlayerActionEnum.leave)
+        )
+    rooms.remove_room_member(user.uuid, room.draft is not None)
+
+    if room.draft is not None:
+        if user.uuid in room.draft.players:
+            room.draft.skip_players.add(user.uuid)
+            # Update it here so we don't do it later
+            update_draft(room.draft, room.code)
+
+            # DESTROY THE ROOM IF EVERYONE LEAVES
+            if all([p in room.draft.skip_players for p in room.draft.players]):
+                destroy_room(room.code)
+                await mg.broadcast_room(room, RoomUpdate(update=RoomUpdateEnum.closed))
+                return # Return, don't do more logic
+
+            await room.draft.do_skip(room)
+
 
 @app.post("/room/kick")
 async def kick_room(request: Request, member: str):
@@ -269,13 +363,16 @@ async def kick_room(request: Request, member: str):
         # Member also just doesn't exist.
         LOG("Could not kick from room - member is not in room.")
         return
-    
-    await mg.broadcast_room(room, PlayerUpdate(uuid=member, action=PlayerActionEnum.kick))
+
+    await mg.broadcast_room(
+        room, PlayerUpdate(uuid=member, action=PlayerActionEnum.kick)
+    )
     rooms.remove_room_member(member)
+
 
 @app.post("/room/swapstatus")
 async def swap_status(request: Request, uuid: str):
-    ad = get_admin_from_request(request)
+    ad = get_admin_in_unstarted_room(request)
     if ad is None:
         return
     _, r = ad
@@ -295,9 +392,29 @@ async def swap_status(request: Request, uuid: str):
     insert_update_status(uuid, status)
 
 
+@app.get("/usersettings")
+async def get_settings(request: Request):
+    u = get_user_from_request(request)
+    if u is None:
+        raise HTTPException(status_code=403, detail="you aren't logged in. no settings for you! >:|")
+
+    return UserSettings(pronouns=u.pronouns)
+
+
+@app.post("/settings")
+async def make_settings(request: Request, s: UserSettings):
+    u = get_user_from_request(request)
+    if u is None:
+        raise HTTPException(status_code=403, detail="you aren't logged in. no settings for you! >:|")
+
+    if s.pronouns is not None:
+        with db.sql as cur:
+            cur.execute("UPDATE users SET pronouns = ? WHERE uuid = ?", (s.pronouns[:12], u.uuid))
+
+
 @app.post("/room/configure")
 async def configure_room(request: Request, payload: Any = Body(None)):
-    ad = get_admin_from_request(request)
+    ad = get_admin_in_unstarted_room(request)
     if ad is None:
         return
     _, r = ad
@@ -306,11 +423,19 @@ async def configure_room(request: Request, payload: Any = Body(None)):
         LOG("Got empty payload for /room/configure")
         return
 
+    LOG("Got configuration update:", payload)
+
+    if r.drafting():
+        # I guess technically this should be done at the sql level but whatever
+        # Not really that worried about this
+        LOG("Cannot modify a room's configuration once draft begins.")
+        return
+
     if not isinstance(payload, dict):
         LOG("Got weird type", type(payload), "for /room/configure")
         return
 
-    new_config = r.config.merge_config(payload)
+    new_config, changed_keys = r.config.merge_config(payload)
 
     rooms.update_config(code=r.code, config=serialize(new_config))
     await mg.update_room(r, new_config)
@@ -318,12 +443,21 @@ async def configure_room(request: Request, payload: Any = Body(None)):
 
 @app.post("/room/commence")
 async def commence_room(request: Request):
-    ad = get_admin_from_request(request)
+    ad = get_admin_in_unstarted_room(request)
     if ad is None:
         return
     _, r = ad
-    
-    await mg.broadcast_room(r, RoomUpdate(update=RoomUpdateEnum.commenced))
+
+    if not r.get_players():
+        raise HTTPException(status_code=403, detail=f'Cannot start room {r.code} - no players.')
+    if len(r.get_players()) > 4:
+        raise HTTPException(status_code=403, detail=f'Cannot start room {r.code} - too many players ({len(r.get_players())})')
+
+    LOG("Commencing room:", r.code)
+
+    r.set_drafting()
+    await mg.broadcast_room(r, RoomUpdate(update=RoomUpdateEnum.commenced, config=r.config))
+    r.start_timer()
 
 
 @app.get("/user")
@@ -333,19 +467,17 @@ async def get_user(request: Request, response: Response) -> LoggedInUser | APIEr
         return api_error(APIError(error_message="Could not find user"), response)
     return user
 
+
 @app.websocket("/listen")
-async def websocket_endpoint(
-    *,
-    websocket: WebSocket,
-    token: str    
-):
+async def websocket_endpoint(*, websocket: WebSocket, token: str):
     from handlers import handle_websocket_message
-    LOG('Got a connect / listen call with a websocket')
+
+    LOG("Got a connect / listen call with a websocket")
     user = token_to_user(token)
     full_user = db.populated_user(user)
     room = full_user.get_room()
     if room is None:
-        return # User must be in a room to be listening for updates.
+        return  # User must be in a room to be listening for updates.
     # Sane maximum
     if full_user.state.connections >= 10:
         raise RuntimeError(f"Max connections exceeded for user {user.username}")
@@ -357,6 +489,7 @@ async def websocket_endpoint(
     try:
         while True:
             data = await websocket.receive_text()
+            print('Got websocket data:', data)
             message = WebSocketMessage.deserialize(data)
             if message is not None:
                 await handle_websocket_message(websocket, message, full_user)
@@ -367,26 +500,69 @@ async def websocket_endpoint(
     finally:
         mg.unsubscribe(websocket, full_user)
 
+
 # Development endpoints.
 if DEV_MODE_WEIRD_ENDPOINTS:
+    @app.post("/dev/becomeuser")
+    async def become_user(request: Request, response: Response, username: str | None = None):
+        from utils import ratelimited_username_to_uuid
+        PAIRS = {
+            "f41c16957a9c4b0cbd2277a7e28c37a6": "PacManMVC",
+            "4326adfebd724170953fd8dabd660538": "Totorewa",
+            "9038803187de426fbc4eea42e19c68ef": "me_nx",
+            "810ad7db704a46039dd3eaacd2908553": "Memerson",
+            "9a8e24df4c8549d696a6951da84fa5c4": "Feinberg",
+            "562a308be86c4ec09438387860e792cc": "Oxidiot",
+            "c17fdba3b5ee46179131c5b547069477": "Rejid",
+            "dc2fe0a1c03647778ee98b80e53397a0": "CrazySMC",
+            "afecd7c643b54d8a8a32b42a0db53418": "DoyPingu",
+            "754f6771eeca46f3b4f293e90a8df75c": "coosh02",
+            "c81a44e0c18544c29d1a93e0362b7777": "Snakezy",
+            "4129d8d1aafb4e73b97b9999db248060": "CroProYT",
+        }
+        if username is not None:
+            maybe_uuid = await ratelimited_username_to_uuid(username)
+            if maybe_uuid is None:
+                return AuthenticationFailure(message=f"{username} is not a valid username")
+            uuid = maybe_uuid
+        else:
+            UUIDS = set(PAIRS.keys())
+            uuid: str = choice(list(UUIDS))
+            username = PAIRS[uuid]
+
+        if not make_fake_user(uuid=uuid, username=username):
+            LOG(f"Note: Did not make user {username}, simply returned new token")
+
+        payload = {
+            "username": username,
+            "uuid": uuid,
+            "serverID": "draafttestserver",
+            "iat": int(time.time()),
+            "exp": int(time.time()) + 60 * 60 * 24,  # 24 hours expiry
+        }
+
+        token = jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
+        # add user to db if not exists
+        return AuthenticationSuccess(token=token)
+
     @app.post("/dev/adduser")
     async def add_user(request: Request, response: Response):
         user = get_user_from_request(request)
         assert user
         room = db.populated_user(user).get_room()
         PAIRS = {
-                "f41c16957a9c4b0cbd2277a7e28c37a6": "PacManMVC",
-                "4326adfebd724170953fd8dabd660538": "Totorewa",
-                "9038803187de426fbc4eea42e19c68ef": "me_nx",
-                "810ad7db704a46039dd3eaacd2908553": "Memerson",
-                "9a8e24df4c8549d696a6951da84fa5c4": "Feinberg",
-                "562a308be86c4ec09438387860e792cc": "Oxidiot",
-                "c17fdba3b5ee46179131c5b547069477": "Rejid",
-                "dc2fe0a1c03647778ee98b80e53397a0": "CrazySMC",
-                "afecd7c643b54d8a8a32b42a0db53418": "DoyPingu",
-                "754f6771eeca46f3b4f293e90a8df75c": "coosh02",
-                "c81a44e0c18544c29d1a93e0362b7777": "Snakezy",
-                "4129d8d1aafb4e73b97b9999db248060": "CroProYT",
+            "f41c16957a9c4b0cbd2277a7e28c37a6": "PacManMVC",
+            "4326adfebd724170953fd8dabd660538": "Totorewa",
+            "9038803187de426fbc4eea42e19c68ef": "me_nx",
+            "810ad7db704a46039dd3eaacd2908553": "Memerson",
+            "9a8e24df4c8549d696a6951da84fa5c4": "Feinberg",
+            "562a308be86c4ec09438387860e792cc": "Oxidiot",
+            "c17fdba3b5ee46179131c5b547069477": "Rejid",
+            "dc2fe0a1c03647778ee98b80e53397a0": "CrazySMC",
+            "afecd7c643b54d8a8a32b42a0db53418": "DoyPingu",
+            "754f6771eeca46f3b4f293e90a8df75c": "coosh02",
+            "c81a44e0c18544c29d1a93e0362b7777": "Snakezy",
+            "4129d8d1aafb4e73b97b9999db248060": "CroProYT",
         }
         UUIDS = set(PAIRS.keys())
         if room is None:
@@ -412,6 +588,8 @@ if DEV_MODE_WEIRD_ENDPOINTS:
             return
         if room.admin != user.uuid:
             return
-        await mg.broadcast_room(room, PlayerUpdate(uuid=user.uuid, action=PlayerActionEnum.kick))
+        await mg.broadcast_room(
+            room, PlayerUpdate(uuid=user.uuid, action=PlayerActionEnum.kick)
+        )
         # do nothing on backend. just broadcast the info...
         # rooms.remove_room_member(member)

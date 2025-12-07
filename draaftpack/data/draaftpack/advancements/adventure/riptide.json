@@ -1,0 +1,30 @@
+{
+    "parent": "minecraft:adventure/throw_trident",	
+    "display": {
+        "icon": {
+            "item": "minecraft:trident",
+            "nbt": "{Enchantments:[{id:\"minecraft:riptide\",lvl:3}]}"
+        },
+        "title": {"translate":"Too situational"},
+        "description": {"translate":"Use a Riptide Trident"},
+        "frame": "challenge",
+        "show_toast": true,
+        "announce_to_chat": true,
+        "hidden": true
+    },
+    "criteria": {
+      "use_riptide": {
+        "trigger": "minecraft:item_durability_changed",
+        "conditions": {
+          "item": {
+            "item": "minecraft:trident",
+            "enchantments": [
+              {
+                "enchantment": "minecraft:riptide"
+              }
+            ]
+          }
+        }
+      }
+    }
+}

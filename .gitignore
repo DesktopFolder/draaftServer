@@ -2,3 +2,6 @@ __pycache__/
 .env/
 db/*.db
 auth/
+.temp
+.datapacks
+testing

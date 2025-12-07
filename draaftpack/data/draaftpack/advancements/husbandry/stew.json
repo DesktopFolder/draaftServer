@@ -1,0 +1,32 @@
+{
+  "display": {
+    "icon": {
+      "item": "minecraft:rabbit_stew"
+    },
+    "title": "Home-Cooked Meal",
+    "description": "Craft a Rabbit Stew",
+    "frame": "goal",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": true
+  },
+  "parent": "minecraft:husbandry/plant_seed",
+  "criteria": {
+    "enchant_item": {
+      "trigger": "minecraft:location",
+      "conditions": {
+        "player": {
+          "player": {
+            "stats": [
+              {
+                "type": "minecraft:crafted",
+                "stat": "minecraft:rabbit_stew",
+                "value": 1
+              }
+            ]
+          }
+        }
+      }
+    }
+  }
+}
