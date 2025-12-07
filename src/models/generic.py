@@ -8,6 +8,11 @@ class LoggedInUser(BaseModel):
     uuid: str
     room_code: str | None = None
     status: str
+    pronouns: str | None = None
+
+
+class UserSettings(BaseModel):
+    pronouns: str | None = None
 
 
 # This could be moved into a mojang model later so we don't need a generic models file

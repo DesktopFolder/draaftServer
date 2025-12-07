@@ -35,7 +35,7 @@ from models.api import (
     AuthenticationSuccess,
     api_error,
 )
-from models.generic import LoggedInUser, MojangInfo
+from models.generic import LoggedInUser, MojangInfo, UserSettings
 from models.room import Room, RoomIdentifier, RoomJoinError, RoomJoinState, RoomResult
 from models.ws import (
     PlayerActionEnum,
@@ -390,6 +390,26 @@ async def swap_status(request: Request, uuid: str):
         status = "spectate"
         await mg.update_status(r, uuid, PlayerActionEnum.spectate)
     insert_update_status(uuid, status)
+
+
+@app.get("/usersettings")
+async def get_settings(request: Request):
+    u = get_user_from_request(request)
+    if u is None:
+        raise HTTPException(status_code=403, detail="you aren't logged in. no settings for you! >:|")
+
+    return UserSettings(pronouns=u.pronouns)
+
+
+@app.post("/settings")
+async def make_settings(request: Request, s: UserSettings):
+    u = get_user_from_request(request)
+    if u is None:
+        raise HTTPException(status_code=403, detail="you aren't logged in. no settings for you! >:|")
+
+    if s.pronouns is not None:
+        with db.sql as cur:
+            cur.execute("UPDATE users SET pronouns = ? WHERE uuid = ?", (s.pronouns[:12], u.uuid))
 
 
 @app.post("/room/configure")

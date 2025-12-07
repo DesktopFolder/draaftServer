@@ -56,7 +56,8 @@ def setup_sqlite():
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 uuid char(32) UNIQUE NOT NULL,
                 username char(32) NOT NULL,
-                room_code char(7) references rooms(code)
+                room_code char(7) references rooms(code),
+                pronouns char(12)
             );
         """)
 
@@ -130,11 +131,11 @@ def get_user(username: str, uuid: str) -> LoggedInUser | None:
         if not insert_user(username, uuid):
             return None
         return get_user(username, uuid)
-    _, uuid, stored_username, room_code = res[0]
+    _, uuid, stored_username, room_code, pronouns = res[0]
     if stored_username != username:
         with sql as cur:
             cur.execute("UPDATE users SET username = ? WHERE uuid = ?", (username, uuid))
-    return LoggedInUser(username=username, uuid=uuid, room_code=room_code, status=get_user_status(uuid))
+    return LoggedInUser(username=username, uuid=uuid, room_code=room_code, status=get_user_status(uuid), pronouns=pronouns)
 
 def try_get_user(uuid: str) -> LoggedInUser | None:
     with sql as cur:
