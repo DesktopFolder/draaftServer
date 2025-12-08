@@ -279,7 +279,7 @@ RANDOM_SCHEDULE = "schedule function draaftpack:randomitem 10s append"
 _add_gambit("debris", "Debris, Debris...", [FeatureGranter('DebrisRates'), FileGranter({"data/draaftpack/functions/randomitem.mcfunction": f"junkitem @a\n{RANDOM_SCHEDULE}"}), CustomGranter(onload=RANDOM_SCHEDULE)], "Your debris rates are extremely high / You are randomly granted junk items every 3-10 seconds")
 
 # SHELLS / TNT
-SCHELLDULE = "schedule function draaftpack:shell 1m append"
+SCHELLDULE = "schedule function draaftpack:shell 300s append"
 _add_gambit("tnt", "Exploding Shells", [FileGranter({"data/draaftpack/functions/shell.mcfunction": f"toshellwithyou @a\n{SCHELLDULE}"}), CustomGranter(onload=SCHELLDULE)],
             "Every five minutes, there is a 50% chance for a shell item to spawn on you / If this does not happen, a TNT spawns instead")
 
