@@ -402,7 +402,7 @@ async def get_settings(request: Request):
 
 
 @app.post("/settings")
-async def make_settings(request: Request, s: UserSettings):
+async def set_user_settings(request: Request, s: UserSettings):
     u = get_user_from_request(request)
     if u is None:
         raise HTTPException(status_code=403, detail="you aren't logged in. no settings for you! >:|")

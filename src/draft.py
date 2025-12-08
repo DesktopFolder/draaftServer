@@ -7,6 +7,9 @@ from pydantic import BaseModel
 from fastapi import APIRouter, HTTPException, Request, Response
 from datetime import date
 
+from datapack.datapack import Datapack, FeatureGranter, CustomGranter, LambdaGranter, FileGranter
+from datapack.luck import LuckGranter
+
 from utils import LOG
 
 rt = APIRouter(prefix="/draft")
@@ -76,81 +79,6 @@ class DraftPool(BaseModel):
     kind: PoolTypeEnum
 
 POOL_MAPPING: dict[str, DraftPool] = dict()
-
-
-class Datapack:
-    def __init__(self):
-        pass
-
-    def onload(self, user: str) -> str:
-        return ""
-
-    def ontick(self, user: str) -> str:
-        return ""
-
-    # no players for this for now
-    def custom_file(self) -> dict[str, str]:
-        return {}
-
-    def features(self) -> list[str]:
-        return list()
-
-    def description(self) -> str:
-        return "error: bad description call"
-
-
-class FeatureGranter(Datapack):
-    def __init__(self, feature: str | list[str]):
-        if isinstance(feature, str):
-            self.features_ = [feature]
-        else:
-            self.features_ = feature
-
-    @override
-    def features(self) -> list[str]:
-        return self.features_
-
-
-class CustomGranter(Datapack):
-    def __init__(self, onload: str | None = None, ontick: str | None = None):
-        self.onload_ = onload
-        self.ontick_ = ontick
-
-    @override
-    def onload(self, user: str) -> str:
-        return (self.onload_ or "").format(USERNAME=user)
-
-    @override
-    def ontick(self, user: str) -> str:
-        return (self.ontick_ or "").format(USERNAME=user)
-
-
-class LambdaGranter(Datapack):
-    def __init__(self, onload: Callable[[str], str] | None = None, ontick: Callable[[str], str] | None = None):
-        self.onload_ = onload
-        self.ontick_ = ontick
-
-    @override
-    def onload(self, user: str) -> str:
-        if self.onload_ is not None:
-            return self.onload_(user)
-        return ""
-
-    @override
-    def ontick(self, user: str) -> str:
-        if self.ontick_ is not None:
-            return self.ontick_(user)
-        return ""
-
-
-class FileGranter(Datapack):
-    def __init__(self, file_granter: dict[str, str]):
-        self.file_granter = file_granter
-
-    @override
-    def custom_file(self) -> dict[str, str]:
-        return self.file_granter
-
 
 PRETTY_ADVANCEMENTS = {
     "adventure/adventuring_time": "Adventuring Time",
@@ -342,26 +270,43 @@ def _add_gambit(
 
 
 # Working (?) gambits
-_add_gambit("sealegs", "Seasickness", [CustomGranter(ontick="effect give {USERNAME} minecraft:nausea 3600\neffect give {USERNAME} minecraft:conduit_power 3600")], "You have constant conduit power / You have constant nausea")
+
+# SEALEGS
+_add_gambit("sealegs", "Seasickness", [CustomGranter(onload="effect give {USERNAME} minecraft:nausea 360 0 true\neffect give {USERNAME} minecraft:conduit_power 999999 0 true")], "You have conduit power until you die / You have nausea for 360 seconds")
+
+# DEBRIS
+RANDOM_SCHEDULE = "schedule function draaftpack:randomitem 10s append"
+_add_gambit("debris", "Debris, Debris...", [FeatureGranter('DebrisRates'), FileGranter({"data/draaftpack/functions/randomitem.mcfunction": f"junkitem @a\n{RANDOM_SCHEDULE}"}), CustomGranter(onload=RANDOM_SCHEDULE)], "Your debris rates are extremely high / You are randomly granted junk items every 3-10 seconds")
+
+# LOOT RATES
+_add_gambit("lootrates", "Lucky Fool", [CustomGranter(ontick="effect give {USERNAME} minecraft:luck 3600 0 true\nattribute {USERNAME} minecraft:generic.max_health base set 8"), LuckGranter()], "Almost all loot is doubled / Your health points are halved")
 
 # TODO GAMBITS
-_add_gambit("hdwgh", "How DID We Get Here?!", [AdvancementGranter(advancement="nether/all_effects"), FeatureGranter('NoInventory')], "You are granted the advancement \"How Did We Get Here\" / Your main inventory slots are removed (offhand and hotbar remain)")
-_add_gambit("debris", "Debris, Debris...", [FeatureGranter('DebrisRates')], "Your debris rates are extremely high / You are randomly granted junk items every 3-10 seconds")
-_add_gambit("lootrates", "Lucky Fool", [CustomGranter(ontick="effect give {USERNAME} minecraft:luck 3600")], "Almost all loot is doubled / Your health points are halved")
-_add_gambit("nof3", "Mapful NoF3", [CustomGranter(onload="gamerule reducedDebugInfo true"), FeatureGranter('ShowCoords')], "You are given coordinates to the bastion, fortress, strongholds, and all rare biomes / You cannot use F3 for coordinates")
+
+# todo - test
 _add_gambit("enchants", "Miner's Delight", [FeatureGranter('AllEnchanted')], "All tools are enchanted with optimal enchantments at all times / The maximum level for all enchants (except piercing) is reduced to 1")
+
+# todo - no inventory
+_add_gambit("hdwgh", "How DID We Get Here?!", [AdvancementGranter(advancement="nether/all_effects"), FeatureGranter('NoInventory')], "You are granted the advancement \"How Did We Get Here\" / Your main inventory slots are removed (offhand and hotbar remain)")
+
+# todo - show coords on f3
+_add_gambit("nof3", "Mapful NoF3", [CustomGranter(onload="gamerule reducedDebugInfo true"), FeatureGranter('ShowCoords')], "You are given coordinates to the bastion, fortress, strongholds, and all rare biomes / You cannot use F3 for coordinates")
+
+# _add_gambit("speedrunner", "SPEEDrunner", [CustomGranter(ontick="execute as @e[type=!item] run attribute @s minecraft:generic.movement_speed modifier add 91e54055-1006-47c1-8b61-76d30687d15c speed 2 multiply_base")], "The move speed of all non-item entities is doubled.")
+
+# todo - add command
 _add_gambit("tnt", "Exploding Shells", [], "Every five minutes, there is a 50% chance for a shell item to spawn on you / If this does not happen, a TNT spawns instead")
 
-if date.today().day > 1 and date.today().month == 12:
+if date.today().day >= 1 and date.today().month == 12:
     _add_gambit("santa", "Santa's Surprise", [RandomItemGranter([
                                                     ('coal{display:{Name:"\\"be better.\\""}}', 3, 0.5),
                                                     ('diamond{display:{Name:"\\"Joyeux Noël\\""}}', 1, 0.05),
-                                                    ('gold{display:{Name:"\\"Ornaments\\""}}', 2),
-                                                    ('lapis{display:{Name:"\\"Christmas gift!\\""}}', 8),
+                                                    ('gold_ingot{display:{Name:"\\"Ornaments\\""}}', 2),
+                                                    ('lapis_lazuli{display:{Name:"\\"Christmas gift!\\""}}', 8),
                                                     ('cooked_salmon{display:{Name:"\\"Holiday meal!\\""}}', 2),
                                                     ('spruce_sapling{display:{Name:"\\"Christmas Trees!\\""}}', 7),
                                                     ('leather_helmet{display:{color:11546150,Name:"\\"Santa\'s Hat\\""}}', 1)
-                                                    ], {"coal": "Naughty!", "__default": "Nice :)"}
+                                                    ], {'coal{display:{Name:"\\"be better.\\""}}': "Naughty!", "__default": "Nice :)"}
                                               ),
                                              ], "Get a surprise if you've been nice! / Only coal if you've been naughty...")
 
@@ -399,7 +344,7 @@ def _add_multi(
 
 
 # Armour
-_add_multi("bucket", "bucket.png", [FeatureGranter('EnchantedBucket'), ItemGranter("bucket{Enchantments:[{}]}")], description="A fully-enchanted, max-tier bucket.")
+_add_multi("bucket", "bucket.png", [FeatureGranter('EnchantedBucket'), ItemGranter("bucket")], description="A fully-enchanted, max-tier bucket.")
 _add_multi("helmet", "helmet.gif", [EnchantedItemGranter("diamond_helmet", [("protection", 5), ("unbreaking", 3), ("aqua_affinity", 1), ("respiration", 3)])])
 _add_multi("chestplate", "chestplate.gif", [EnchantedItemGranter("diamond_chestplate", [("protection", 5), ("unbreaking", 3)])])
 _add_multi("leggings", "leggings.gif", [EnchantedItemGranter("diamond_leggings", [("protection", 5), ("unbreaking", 3)])])
@@ -495,7 +440,7 @@ _add_advancement(key="two_by_two", image="golden_carrot.png", advs=["husbandry/b
 _add_advancement(key="monsters_hunted", image="diamond_sword.png", advs=["adventure/kill_all_mobs"])
 _add_advancement(key="a_balanced_diet", image="apple.png", advs=["husbandry/balanced_diet"])
 
-_add_draftable(Draftable.basic(key="fireres", image="fire_resistance.png", description="Grants permanent Fire Resistance.", name="Fire Resistance"), datapack=[CustomGranter(ontick="effect give {USERNAME} minecraft:fire_resistance 3600")])
+_add_draftable(Draftable.basic(key="fireres", image="fire_resistance.png", description="Grants permanent Fire Resistance.", name="Fire Resistance"), datapack=[CustomGranter(ontick="effect give {USERNAME} minecraft:fire_resistance 3600 0 true")])
 
 _add_multi(key="leads", image="lead.png", gens=[ItemGranter("lead", 23), AdvancementGranter(advancement="adventure/kill_all_mobs", criteria="slime")])
 

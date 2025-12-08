@@ -1,12 +1,18 @@
 import re
 import aiohttp
 import json
+import sys
 
 from models.generic import LoggedInUser
 
 def nolog(*_, **__):
     pass
-LOG = print
+
+
+if "dev" in sys.argv:
+    LOG = print
+else:
+    LOG = nolog
 
 
 class IndentLog:
