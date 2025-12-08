@@ -274,9 +274,14 @@ def _add_gambit(
 # SEALEGS
 _add_gambit("sealegs", "Seasickness", [CustomGranter(onload="effect give {USERNAME} minecraft:nausea 360 0 true\neffect give {USERNAME} minecraft:conduit_power 999999 0 true")], "You have conduit power until you die / You have nausea for 360 seconds")
 
-# DEBRIS
+# DEBRIS / DEBRIS
 RANDOM_SCHEDULE = "schedule function draaftpack:randomitem 10s append"
 _add_gambit("debris", "Debris, Debris...", [FeatureGranter('DebrisRates'), FileGranter({"data/draaftpack/functions/randomitem.mcfunction": f"junkitem @a\n{RANDOM_SCHEDULE}"}), CustomGranter(onload=RANDOM_SCHEDULE)], "Your debris rates are extremely high / You are randomly granted junk items every 3-10 seconds")
+
+# SHELLS / TNT
+SCHELLDULE = "schedule function draaftpack:shell 1m append"
+_add_gambit("tnt", "Exploding Shells", [FileGranter({"data/draaftpack/functions/shell.mcfunction": f"toshellwithyou @a\n{SCHELLDULE}"}), CustomGranter(onload=SCHELLDULE)],
+            "Every five minutes, there is a 50% chance for a shell item to spawn on you / If this does not happen, a TNT spawns instead")
 
 # LOOT RATES
 _add_gambit("lootrates", "Lucky Fool", [CustomGranter(ontick="effect give {USERNAME} minecraft:luck 3600 0 true\nattribute {USERNAME} minecraft:generic.max_health base set 8"), LuckGranter()], "Almost all loot is doubled / Your health points are halved")
@@ -295,7 +300,6 @@ _add_gambit("nof3", "Mapful NoF3", [CustomGranter(onload="gamerule reducedDebugI
 # _add_gambit("speedrunner", "SPEEDrunner", [CustomGranter(ontick="execute as @e[type=!item] run attribute @s minecraft:generic.movement_speed modifier add 91e54055-1006-47c1-8b61-76d30687d15c speed 2 multiply_base")], "The move speed of all non-item entities is doubled.")
 
 # todo - add command
-_add_gambit("tnt", "Exploding Shells", [], "Every five minutes, there is a 50% chance for a shell item to spawn on you / If this does not happen, a TNT spawns instead")
 
 if date.today().day >= 1 and date.today().month == 12:
     _add_gambit("santa", "Santa's Surprise", [RandomItemGranter([
