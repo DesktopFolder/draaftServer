@@ -489,7 +489,7 @@ async def websocket_endpoint(*, websocket: WebSocket, token: str):
     try:
         while True:
             data = await websocket.receive_text()
-            print('Got websocket data:', data)
+            LOG('Got websocket data:', data)
             message = WebSocketMessage.deserialize(data)
             if message is not None:
                 await handle_websocket_message(websocket, message, full_user)

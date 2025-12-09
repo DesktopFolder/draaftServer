@@ -78,15 +78,25 @@ def _apply_manifest(loc: str, state: RoomState, features: list[Datapack]):
         dump(manifest, file, indent=2)
 
 
-def _apply_datapack(loc: str, username: str, dt: Datapack):
+def _apply_datapack(loc: str, username: str, dt: Datapack, modified_jsons: set[str]):
     from os import makedirs
     from os.path import dirname, join
     for fn, val in dt.custom_file().items():
         # make sure we don't have a situation
         assert not fn.startswith('/')
         makedirs(dirname(join(loc, fn)), exist_ok=True)
-        with open(join(loc, fn), 'a') as file:
-            file.write(val)
+
+        dest = join(loc, fn)
+        if fn.endswith(".json"):
+            if dest in modified_jsons:
+                print(f"Warning: Failed to apply to {fn} - duplicate JSON add")
+            with open(join(loc, fn), 'w') as file:
+                file.write(val)
+            modified_jsons.add(dest)
+        else:
+            with open(join(loc, fn), 'a') as file:
+                file.write(val)
+
 
 
 def _apply_generic(loc: str, username: str, dts: list[Datapack]):
@@ -119,6 +129,8 @@ def _generate_datapack(pack_id: str, uuid: str, username: str, draft: Draft, sta
     import shutil
     from os.path import join, isdir
 
+    MODIFIED_JSONS = set()
+
     # setup: copy to the source directory
     gen_dir = join(DATAPACK_GEN_DIR, pack_id)
     if isdir(gen_dir):
@@ -150,7 +162,7 @@ def _generate_datapack(pack_id: str, uuid: str, username: str, draft: Draft, sta
         all_player_datapack_objects.extend(o)
         for dt in o:
             # apply all specific things
-            _apply_datapack(gen_dir, username, dt)
+            _apply_datapack(gen_dir, username, dt, MODIFIED_JSONS)
         # apply onload & ontick
         _apply_generic(gen_dir, username, o)
 
@@ -161,7 +173,7 @@ def _generate_datapack(pack_id: str, uuid: str, username: str, draft: Draft, sta
         gambit = DATAPACK[gb]
         all_player_datapack_objects.extend(gambit)
         for dt in gambit:
-            _apply_datapack(gen_dir, username, dt)
+            _apply_datapack(gen_dir, username, dt, MODIFIED_JSONS)
         _apply_generic(gen_dir, username, gambit)
 
     _apply_manifest(gen_dir, state, all_player_datapack_objects)

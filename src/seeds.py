@@ -112,7 +112,7 @@ def basic_annotation(xz: tuple[str, str] | tuple[int, int]):
 
 def stronghold_ano(xz: tuple[str, str]):
     x, z = [int(c) * 2 for c in xz]
-    return '(Nether Coordinates) ' + basic_annotation((x, z))
+    return basic_annotation((x, z))
 
 def chunk_annotation(xz: tuple[str, str]):
     x, z = [int(c) * 16 for c in xz]

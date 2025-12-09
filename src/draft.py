@@ -272,34 +272,37 @@ def _add_gambit(
 # Working (?) gambits
 
 # SEALEGS
-_add_gambit("sealegs", "Seasickness", [CustomGranter(onload="effect give {USERNAME} minecraft:nausea 360 0 true\neffect give {USERNAME} minecraft:conduit_power 999999 0 true")], "You have conduit power until you die / You have nausea for 360 seconds")
+_add_gambit("sealegs", "Seasickness", [CustomGranter(onload="effect give {USERNAME} minecraft:nausea 360 0 true\neffect give {USERNAME} minecraft:conduit_power 999999 0 true")], "You have conduit power until you purge effects / You have nausea for 360 seconds")
 
 # DEBRIS / DEBRIS
 RANDOM_SCHEDULE = "schedule function draaftpack:randomitem 10s append"
-_add_gambit("debris", "Debris, Debris...", [FeatureGranter('DebrisRates'), FileGranter({"data/draaftpack/functions/randomitem.mcfunction": f"junkitem @a\n{RANDOM_SCHEDULE}"}), CustomGranter(onload=RANDOM_SCHEDULE)], "Your debris rates are extremely high / You are randomly granted junk items every 3-10 seconds")
+_add_gambit("debris", "Debris, Debris...", [FeatureGranter('DebrisRates'), FileGranter({"data/draaftpack/functions/randomitem.mcfunction": f"junkitem @a\n{RANDOM_SCHEDULE}"}), CustomGranter(onload=RANDOM_SCHEDULE)], "Your debris rates are extremely high / You are randomly granted junk items every 10 seconds")
 
 # SHELLS / TNT
 SCHELLDULE = "schedule function draaftpack:shell 300s append"
 _add_gambit("tnt", "Exploding Shells", [FileGranter({"data/draaftpack/functions/shell.mcfunction": f"toshellwithyou @a\n{SCHELLDULE}"}), CustomGranter(onload=SCHELLDULE)],
-            "Every five minutes, there is a 50% chance for a shell item to spawn on you / If this does not happen, a TNT spawns instead")
+            "Every five minutes, there is a 50% chance for a shell item to spawn on you / If this does not happen, you spawn a TNT instead")
 
 # LOOT RATES
-_add_gambit("lootrates", "Lucky Fool", [CustomGranter(ontick="effect give {USERNAME} minecraft:luck 3600 0 true\nattribute {USERNAME} minecraft:generic.max_health base set 8"), LuckGranter()], "Almost all loot is doubled / Your health points are halved")
+_add_gambit("lootrates", "Lucky Fool", [CustomGranter(ontick="effect give {USERNAME} minecraft:luck 3600 0 true\nattribute {USERNAME} minecraft:generic.max_health base set 8"), LuckGranter()], "Almost all loot is doubled / Your max health is 4 (8 points)")
+
+# ALL ENCHANTED
+_add_gambit("enchants", "Miner's Delight", [FeatureGranter('AllEnchanted')], "All tools are enchanted with optimal enchantments at all times / The maximum level for all enchants (except piercing) is reduced to 1")
+
+# DANGEROUS PEARLS
+_add_gambit("pearls", "Pearling Dangerously", [FeatureGranter('DangerousPearls')], "Ender pearls deal no damage to you and have no cooldown / Your fall damage is multiplied by 3")
 
 # TODO GAMBITS
 
-# todo - test
-_add_gambit("enchants", "Miner's Delight", [FeatureGranter('AllEnchanted')], "All tools are enchanted with optimal enchantments at all times / The maximum level for all enchants (except piercing) is reduced to 1")
+# give someone a random effect every X seconds?
 
 # todo - no inventory
-_add_gambit("hdwgh", "How DID We Get Here?!", [AdvancementGranter(advancement="nether/all_effects"), FeatureGranter('NoInventory')], "You are granted the advancement \"How Did We Get Here\" / Your main inventory slots are removed (offhand and hotbar remain)")
+# _add_gambit("hdwgh", "How DID We Get Here?!", [AdvancementGranter(advancement="nether/all_effects"), FeatureGranter('NoInventory')], "You are granted the advancement \"How Did We Get Here\" / Your main inventory slots are removed (offhand and hotbar remain)")
 
 # todo - show coords on f3
 _add_gambit("nof3", "Mapful NoF3", [CustomGranter(onload="gamerule reducedDebugInfo true"), FeatureGranter('ShowCoords')], "You are given coordinates to the bastion, fortress, strongholds, and all rare biomes / You cannot use F3 for coordinates")
 
 # _add_gambit("speedrunner", "SPEEDrunner", [CustomGranter(ontick="execute as @e[type=!item] run attribute @s minecraft:generic.movement_speed modifier add 91e54055-1006-47c1-8b61-76d30687d15c speed 2 multiply_base")], "The move speed of all non-item entities is doubled.")
-
-# todo - add command
 
 if date.today().day >= 1 and date.today().month == 12:
     _add_gambit("santa", "Santa's Surprise", [RandomItemGranter([
