@@ -179,6 +179,7 @@ def get_end():
     return str(choice(END_SEEDS))
 
 def make_settings(overworld: str, nether: str, end: str, room: str, worldtype: str) -> str:
+    ### TODO - THIS SHOULD REALLY BE CACHED
     from hashlib import sha256, md5
     s_overworld = overworld
     s_nether = nether

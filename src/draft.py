@@ -197,15 +197,18 @@ class RandomItemGranter(Datapack):
 
 
 class EnchantedItemGranter(Datapack):
-    def __init__(self, item: str, enchants: list[tuple[str, int]]):
+    def __init__(self, item: str, enchants: list[tuple[str, int]], disableReenchant = False):
         self.item = item
         self.enchants = enchants
         """
 give @a minecraft:diamond_sword{Enchantments:[{id:"minecraft:smite",lvl:5},{id:"minecraft:looting",lvl:3},{id:"minecraft:unbreaking",lvl:3}]}
         """
+        reenchant = ""
+        if disableReenchant:
+            reenchant = "_d2i:1,"
         ENCHANT_SPECS = ','.join([f"{{id:\"minecraft:{enchant}\",lvl:{lvl}}}" for (enchant, lvl) in enchants])
         ENCHANT_DESCS = ', '.join([f"{basic_prettify(enchant)} {lvl}" if lvl > 1 else basic_prettify(enchant) for (enchant, lvl) in enchants])
-        self.spec = f"minecraft:{item}{{Enchantments:[{ENCHANT_SPECS}]}}"
+        self.spec = f"minecraft:{item}{{{reenchant}Enchantments:[{ENCHANT_SPECS}]}}"
         self.desc = f"Gives {basic_prettify(self.item, title=False)} enchanted with {ENCHANT_DESCS}"
 
     @override
@@ -287,7 +290,7 @@ _add_gambit("tnt", "Exploding Shells", [FileGranter({"data/draaftpack/functions/
 _add_gambit("lootrates", "Lucky Fool", [CustomGranter(ontick="effect give {USERNAME} minecraft:luck 3600 0 true\nattribute {USERNAME} minecraft:generic.max_health base set 8"), LuckGranter()], "Almost all loot is doubled / Your max health is 4 (8 points)")
 
 # ALL ENCHANTED
-_add_gambit("enchants", "Miner's Delight", [FeatureGranter('AllEnchanted')], "All tools are enchanted with optimal enchantments at all times / The maximum level for all enchants (except piercing) is reduced to 1")
+_add_gambit("enchants", "Miner's Delight", [FeatureGranter('AllEnchanted')], "All tools are enchanted with optimal enchantments at all times / The maximum level for all enchants (except piercing & drafted items) is reduced to 1")
 
 # DANGEROUS PEARLS
 _add_gambit("pearls", "Pearling Dangerously", [FeatureGranter('DangerousPearls')], "Ender pearls deal no damage to you and have no cooldown / Your fall damage is multiplied by 3")
@@ -352,18 +355,18 @@ def _add_multi(
 
 # Armour
 _add_multi("bucket", "bucket.png", [FeatureGranter('EnchantedBucket'), ItemGranter("bucket")], description="A fully-enchanted, max-tier bucket.")
-_add_multi("helmet", "helmet.gif", [EnchantedItemGranter("diamond_helmet", [("protection", 5), ("unbreaking", 3), ("aqua_affinity", 1), ("respiration", 3)])])
-_add_multi("chestplate", "chestplate.gif", [EnchantedItemGranter("diamond_chestplate", [("protection", 5), ("unbreaking", 3)])])
-_add_multi("leggings", "leggings.gif", [EnchantedItemGranter("diamond_leggings", [("protection", 5), ("unbreaking", 3)])])
-_add_multi("boots", "boots.gif", [EnchantedItemGranter("diamond_boots", [("protection", 5), ("unbreaking", 3), ("depth_strider", 3)])])
+_add_multi("helmet", "helmet.gif", [EnchantedItemGranter("diamond_helmet", [("protection", 5), ("unbreaking", 3), ("aqua_affinity", 1), ("respiration", 3)], disableReenchant=True)])
+_add_multi("chestplate", "chestplate.gif", [EnchantedItemGranter("diamond_chestplate", [("protection", 5), ("unbreaking", 3)], disableReenchant=True)])
+_add_multi("leggings", "leggings.gif", [EnchantedItemGranter("diamond_leggings", [("protection", 5), ("unbreaking", 3)], disableReenchant=True)])
+_add_multi("boots", "boots.gif", [EnchantedItemGranter("diamond_boots", [("protection", 5), ("unbreaking", 3), ("depth_strider", 3)], disableReenchant=True)])
 
 # Tools
-_add_multi("sword", "sword.gif", [EnchantedItemGranter("diamond_sword", [("smite", 5), ("looting", 3), ("unbreaking", 3)])])
-_add_multi("pickaxe", "pickaxe.gif", [EnchantedItemGranter("diamond_pickaxe", [("fortune", 3), ("efficiency", 4), ("unbreaking", 3)])])
-_add_multi("axe", "axe.gif", [EnchantedItemGranter("diamond_axe", [("efficiency", 5), ("silk_touch", 1), ("unbreaking", 3)])])
-_add_multi("shovel", "shovel.gif", [EnchantedItemGranter("diamond_shovel", [("efficiency", 5), ("fortune", 3), ("unbreaking", 3)])])
-_add_multi("hoe", "netherite_hoe.gif", [EnchantedItemGranter("netherite_hoe", [("efficiency", 5), ("silk_touch", 1), ("unbreaking", 3)])])
-_add_multi("trident", "trident.gif", [EnchantedItemGranter("trident", [("channeling", 1), ("loyalty", 3), ("unbreaking", 3)])])
+_add_multi("sword", "sword.gif", [EnchantedItemGranter("diamond_sword", [("smite", 5), ("looting", 3), ("unbreaking", 3)], disableReenchant=True)])
+_add_multi("pickaxe", "pickaxe.gif", [EnchantedItemGranter("diamond_pickaxe", [("fortune", 3), ("efficiency", 4), ("unbreaking", 3)], disableReenchant=True)])
+_add_multi("axe", "axe.gif", [EnchantedItemGranter("diamond_axe", [("efficiency", 5), ("silk_touch", 1), ("unbreaking", 3)], disableReenchant=True)])
+_add_multi("shovel", "shovel.gif", [EnchantedItemGranter("diamond_shovel", [("efficiency", 5), ("fortune", 3), ("unbreaking", 3)], disableReenchant=True)])
+_add_multi("hoe", "netherite_hoe.gif", [EnchantedItemGranter("netherite_hoe", [("efficiency", 5), ("silk_touch", 1), ("unbreaking", 3)], disableReenchant=True)])
+_add_multi("trident", "trident.gif", [EnchantedItemGranter("trident", [("channeling", 1), ("loyalty", 3), ("unbreaking", 3)], disableReenchant=True)])
 
 # Biomes
 _add_advancement(
@@ -455,7 +458,7 @@ _add_advancement(key="breeds", image="haybale.png", advs=[("husbandry/bred_all_a
 
 _add_multi(key="hives", image="beenest.png", gens=[ItemGranter('bee_nest{BlockEntityTag:{Bees:[{MinOccupationTicks:600,TicksInHive:500,EntityData:{Brain:{memories:{}},HurtByTimestamp:0,HasStung:0b,Attributes:[],Invulnerable:0b,FallFlying:0b,ForcedAge:0,PortalCooldown:0,AbsorptionAmount:0.0f,FallDistance:0.0f,InLove:0,DeathTime:0s,HandDropChances:[0.085f,0.085f],CannotEnterHiveTicks:0,PersistenceRequired:0b,id:"minecraft:bee",Age:0,TicksSincePollination:0,AngerTime:0,Motion:[0.0d,0.0d,0.0d],Health:10.0f,HasNectar:0b,LeftHanded:0b,Air:300s,OnGround:0b,Rotation:[1.2499212f,0.0f],HandItems:[{},{}],ArmorDropChances:[0.085f,0.085f,0.085f,0.085f],Pos:[0.0d,0.0d,0.0d],Fire:-1s,ArmorItems:[{},{},{},{}],CropsGrownSincePollination:0,CanPickUpLoot:0b,HurtTime:0s}},{MinOccupationTicks:600,TicksInHive:500,EntityData:{Brain:{memories:{}},HurtByTimestamp:0,HasStung:0b,Attributes:[],Invulnerable:0b,FallFlying:0b,ForcedAge:0,PortalCooldown:0,AbsorptionAmount:0.0f,FallDistance:0.0f,InLove:0,DeathTime:0s,HandDropChances:[0.085f,0.085f],CannotEnterHiveTicks:0,PersistenceRequired:0b,id:"minecraft:bee",Age:0,TicksSincePollination:0,AngerTime:0,Motion:[0.0d,0.0d,0.0d],Health:10.0f,HasNectar:0b,LeftHanded:0b,Air:300s,OnGround:0b,Rotation:[1.2499212f,0.0f],HandItems:[{},{}],ArmorDropChances:[0.085f,0.085f,0.085f,0.085f],Pos:[0.0d,0.0d,0.0d],Fire:-1s,ArmorItems:[{},{},{},{}],CropsGrownSincePollination:0,CanPickUpLoot:0b,HurtTime:0s}},{MinOccupationTicks:600,TicksInHive:500,EntityData:{Brain:{memories:{}},HurtByTimestamp:0,HasStung:0b,Attributes:[],Invulnerable:0b,FallFlying:0b,ForcedAge:0,PortalCooldown:0,AbsorptionAmount:0.0f,FallDistance:0.0f,InLove:0,DeathTime:0s,HandDropChances:[0.085f,0.085f],CannotEnterHiveTicks:0,PersistenceRequired:0b,id:"minecraft:bee",Age:0,TicksSincePollination:0,AngerTime:0,Motion:[0.0d,0.0d,0.0d],Health:10.0f,HasNectar:0b,LeftHanded:0b,Air:300s,OnGround:0b,Rotation:[1.2499212f,0.0f],HandItems:[{},{}],ArmorDropChances:[0.085f,0.085f,0.085f,0.085f],Pos:[0.0d,0.0d,0.0d],Fire:-1s,ArmorItems:[{},{},{},{}],CropsGrownSincePollination:0,CanPickUpLoot:0b,HurtTime:0s}}]}}', 2, desc_name="filled bee nest")])
 
-_add_multi(key="crossbow", image="crossbow.gif", gens=[EnchantedItemGranter("crossbow", [("piercing", 4)])])
+_add_multi(key="crossbow", image="crossbow.gif", gens=[EnchantedItemGranter("crossbow", [("piercing", 4)], disableReenchant=True)])
 
 def shulker_granter(user: str) -> str:
     import random
