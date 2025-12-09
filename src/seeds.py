@@ -5,49 +5,53 @@ from typing import Generator
 
 _settings = """
 {
-  "bonus_chest": false,
-  "dimensions": {
-    "minecraft:overworld": {
-      "type": "minecraft:overworld",
-      "generator": {
-        "biome_source": {
-          "seed": %OVERWORLD%,
-          "large_biomes": false,
-          "type": "minecraft:vanilla_layered"
+    "room": "%ROOMCODE%",
+    "worldId": "%WORLDID%",
+    "worldGenSettings": {
+      "bonus_chest": false,
+      "dimensions": {
+        "minecraft:overworld": {
+          "type": "minecraft:overworld",
+          "generator": {
+            "biome_source": {
+              "seed": %OVERWORLD%,
+              "large_biomes": false,
+              "type": "minecraft:vanilla_layered"
+            },
+            "seed": %OVERWORLD%,
+            "settings": "minecraft:overworld",
+            "type": "minecraft:noise"
+          }
         },
-        "seed": %OVERWORLD%,
-        "settings": "minecraft:overworld",
-        "type": "minecraft:noise"
-      }
-    },
-    "minecraft:the_nether": {
-      "type": "minecraft:the_nether",
-      "generator": {
-        "biome_source": {
-          "seed": %NETHER%,
-          "preset": "minecraft:nether",
-          "type": "minecraft:multi_noise"
+        "minecraft:the_nether": {
+          "type": "minecraft:the_nether",
+          "generator": {
+            "biome_source": {
+              "seed": %NETHER%,
+              "preset": "minecraft:nether",
+              "type": "minecraft:multi_noise"
+            },
+            "seed": %NETHER%,
+            "settings": "minecraft:nether",
+            "type": "minecraft:noise"
+          }
         },
-        "seed": %NETHER%,
-        "settings": "minecraft:nether",
-        "type": "minecraft:noise"
-      }
-    },
-    "minecraft:the_end": {
-      "type": "minecraft:the_end",
-      "generator": {
-        "biome_source": {
-          "seed": %END%,
-          "type": "minecraft:the_end"
-        },
-        "seed": %END%,
-        "settings": "minecraft:end",
-        "type": "minecraft:noise"
-      }
+        "minecraft:the_end": {
+          "type": "minecraft:the_end",
+          "generator": {
+            "biome_source": {
+              "seed": %END%,
+              "type": "minecraft:the_end"
+            },
+            "seed": %END%,
+            "settings": "minecraft:end",
+            "type": "minecraft:noise"
+          }
+        }
+      },
+      "seed": %OVERWORLD%,
+      "generate_features": true
     }
-  },
-  "seed": %OVERWORLD%,
-  "generate_features": true
 }
 """
 class SeedAnnotation:
@@ -174,8 +178,16 @@ def get_nether():
 def get_end():
     return str(choice(END_SEEDS))
 
-def make_settings(overworld: str, nether: str, end: str) -> str:
+def make_settings(overworld: str, nether: str, end: str, room: str, worldtype: str) -> str:
+    from hashlib import sha256, md5
     s_overworld = overworld
     s_nether = nether
     s_end = end
-    return _settings.replace("%OVERWORLD%", s_overworld).replace("%NETHER%", s_nether).replace("%END%", s_end)
+
+    combined = sha256()
+    combined.update(md5(overworld.encode()).digest())
+    combined.update(md5(worldtype.encode()).digest())
+
+
+    return (_settings.replace("%OVERWORLD%", s_overworld).replace("%NETHER%", s_nether).replace("%END%", s_end)
+            .replace("%WORLDID%", combined.hexdigest()[0:32]).replace("%ROOMCODE%", room))

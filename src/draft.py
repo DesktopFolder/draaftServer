@@ -739,7 +739,7 @@ async def download_worldgen(request: Request):
     en = room.state.end_seed
     if ow is None or nt is None or en is None:
         raise HTTPException(status_code=500, detail="Seed not found!")
-    return make_settings(ow, nt, en)
+    return make_settings(ow, nt, en, room=room.code, worldtype="vanilla")
 
 
 async def update_gambit(request: Request, key: str, value: bool):
