@@ -465,6 +465,20 @@ async def get_user(request: Request, response: Response) -> LoggedInUser | APIEr
     user = get_user_from_request(request)
     if user is None:
         return api_error(APIError(error_message="Could not find user"), response)
+
+    # Fix frontend issue where we get an error because we try to join the room in /user
+    # but the room does not exist in the backend. TODO - Maybe get_user_from_request
+    # should check for this itself so we don't have to check in other locations.
+    if user.room_code is not None and rooms.get_room_from_code(user.room_code) is None:
+        # Handle room timeout / deletion
+        LOG("/user : room was deleted, removing it from the user")
+        user.room_code = None
+        # Update this in the DB as well.
+        with db.sql as cur:
+            cur.execute(
+                f"UPDATE users SET room_code = NULL WHERE uuid IN (?)", (user.uuid,)
+            )
+
     return user
 
 
