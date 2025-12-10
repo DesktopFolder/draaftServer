@@ -297,15 +297,18 @@ _add_gambit("pearls", "Pearling Dangerously", [FeatureGranter('DangerousPearls')
 
 # TODO GAMBITS
 
-# give someone a random effect every X seconds?
+# TODO - test
+_add_gambit("hdwgh", "How DID We Get Here?!", [AdvancementGranter(advancement="nether/all_effects"), FeatureGranter('NoInventory')], "You are granted the advancement \"How Did We Get Here\" / Your main inventory slots are removed (offhand, armour and hotbar remain)")
 
-# todo - no inventory
-# _add_gambit("hdwgh", "How DID We Get Here?!", [AdvancementGranter(advancement="nether/all_effects"), FeatureGranter('NoInventory')], "You are granted the advancement \"How Did We Get Here\" / Your main inventory slots are removed (offhand and hotbar remain)")
-
-# todo - show coords on f3
+# TODO - test
 _add_gambit("nof3", "Mapful NoF3", [CustomGranter(onload="gamerule reducedDebugInfo true"), FeatureGranter('ShowCoords')], "You are given coordinates to the bastion, fortress, strongholds, and all rare biomes / You cannot use F3 for coordinates")
 
-# _add_gambit("speedrunner", "SPEEDrunner", [CustomGranter(ontick="execute as @e[type=!item] run attribute @s minecraft:generic.movement_speed modifier add 91e54055-1006-47c1-8b61-76d30687d15c speed 2 multiply_base")], "The move speed of all non-item entities is doubled.")
+""" Gambit Ideas
+
+_add_gambit("speedrunner", "SPEEDrunner", [CustomGranter(ontick="execute as @e[type=!item] run attribute @s minecraft:generic.movement_speed modifier add 91e54055-1006-47c1-8b61-76d30687d15c speed 2 multiply_base")], "The move speed of all non-item entities is doubled.")
+
+give someone a random effect every X seconds?
+"""
 
 if date.today().day >= 1 and date.today().month == 12:
     _add_gambit("santa", "Santa's Surprise", [RandomItemGranter([
