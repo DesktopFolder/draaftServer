@@ -87,6 +87,9 @@ class RoomState(BaseModel):
 
     player_advancements: dict[str, set[str]] = dict()
 
+    ready_players: set[str] = set()
+    has_sent_start: bool = False
+
     def start_draft(self, o):
         from seeds import get_overworld, get_nether, get_end
         assert isinstance(o, Room)
@@ -130,6 +133,52 @@ class Room(BaseModel):
         if self.draft is not None:
             return len(self.draft.draft)
         return 0
+
+    async def check_all_ready(self):
+        from room_manager import CLIENT_TO_WEBSOCKET, mg
+        from models.ws import serialize
+        from db import sql
+        from models.ws import RoomUpdate, RoomUpdateEnum
+        if self.draft is None or self.state.has_sent_start:
+            return
+        if not self.draft.complete:
+            return
+        for p in self.draft.players:
+            if p in CLIENT_TO_WEBSOCKET:
+                if p not in self.state.ready_players:
+                    # Is a client, is not ready
+                    return
+        LOG(f'Sending game start to room {self.code}')
+        self.state.has_sent_start = True
+
+        # update first. I guess we might crash. but whatever.
+        state = serialize(self.state)
+        with sql as cur:
+            cur.execute(
+                "UPDATE rooms SET state = ? WHERE code = ?",
+                (state, self.code),
+            )
+
+        await mg.broadcast_room(
+            self,
+            RoomUpdate(update=RoomUpdateEnum.loading_complete),
+        )
+
+    async def set_ready(self, player: str, value: str):
+        from models.ws import serialize
+        from db import sql
+        if value == 'ready':
+            self.state.ready_players.add(player)
+        else:
+            self.state.ready_players.remove(player)
+        state = serialize(self.state)
+        with sql as cur:
+            cur.execute(
+                "UPDATE rooms SET state = ? WHERE code = ?",
+                (state, self.code),
+            )
+
+        await self.check_all_ready()
 
     def set_drafting(self):
         from db import sql

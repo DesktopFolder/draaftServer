@@ -47,7 +47,7 @@ from models.ws import (
 )
 from utils import get_user_from_request, validate_mojang_session, LOG, persistent_token
 import sys
-from room_manager import mg
+from room_manager import mg, handle_client_metadata
 from draft import rt
 from game import rt as game_router
 
@@ -510,6 +510,9 @@ async def websocket_endpoint(*, websocket: WebSocket, token: str):
         while True:
             data = await websocket.receive_text()
             LOG('Got websocket data:', data)
+            if data.startswith("##"):
+                await handle_client_metadata(data, full_user, websocket)
+                continue
             message = WebSocketMessage.deserialize(data)
             if message is not None:
                 await handle_websocket_message(websocket, message, full_user)

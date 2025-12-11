@@ -672,6 +672,7 @@ class Draft(BaseModel):
                 room,
                 RoomUpdate(update=RoomUpdateEnum.draft_complete),
             )
+            await room.check_all_ready()
             return
 
         if self.position and self.position[0] in self.skip_players:
