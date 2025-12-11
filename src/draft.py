@@ -2,7 +2,7 @@ from collections import defaultdict
 from enum import Enum
 from typing import DefaultDict, Literal, Any, Callable
 from typing_extensions import override
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel
 from fastapi import APIRouter, HTTPException, Request, Response
 from datetime import date
@@ -736,7 +736,7 @@ async def download_gambits(request: Request):
 
 
 @rt.get("/worldgen")
-async def download_worldgen(request: Request):
+async def download_worldgen(request: Request) -> Response:
     from db_utils import always_get_drafting_player
     from seeds import make_settings
     # making use of the fact always_get_drafting_player works on comlete drafts
@@ -748,7 +748,11 @@ async def download_worldgen(request: Request):
     en = room.state.end_seed
     if ow is None or nt is None or en is None:
         raise HTTPException(status_code=500, detail="Seed not found!")
-    return make_settings(ow, nt, en, room=room.code, worldtype="vanilla")
+
+    return Response(
+        make_settings(ow, nt, en, room=room.code, worldtype="vanilla").encode(),
+        media_type=JSONResponse.media_type
+    )
 
 
 async def update_gambit(request: Request, key: str, value: bool):
