@@ -290,10 +290,12 @@ async def join_room(
             ),
             response,
         )
+
+    # Add the user to the room first, THEN broadcast to the room.
+    room.members.add(user.uuid)
     await mg.broadcast_room(
         room, PlayerUpdate(uuid=user.uuid, action=PlayerActionEnum.joined)
     )
-    room.members.add(user.uuid)
 
     # If the room is already live
     if room.drafting() or room.playing() or (room.config.restrict_players and user.uuid not in room.config.restrict_players):
@@ -319,6 +321,7 @@ async def leave_room(request: Request):
     isadmin = room.admin == user.uuid
 
     # ONLY delete the room for admins IFF draft is None
+    # Note: We broadcast the information first, THEN remove the player
     if isadmin and room.draft is None:
         await mg.broadcast_room(room, RoomUpdate(update=RoomUpdateEnum.closed))
     else:
@@ -364,6 +367,7 @@ async def kick_room(request: Request, member: str):
         LOG("Could not kick from room - member is not in room.")
         return
 
+    # Broadcast information first, THEN remove the player from the room.
     await mg.broadcast_room(
         room, PlayerUpdate(uuid=member, action=PlayerActionEnum.kick)
     )
@@ -491,7 +495,8 @@ async def websocket_endpoint(*, websocket: WebSocket, token: str):
     full_user = db.populated_user(user)
     room = full_user.get_room()
     if room is None:
-        return  # User must be in a room to be listening for updates.
+        LOG(f"Note: User {user.username} is listening to websocket before joining a room.")
+        # return  # User must be in a room to be listening for updates.
     # Sane maximum
     if full_user.state.connections >= 10:
         raise RuntimeError(f"Max connections exceeded for user {user.username}")
@@ -499,7 +504,8 @@ async def websocket_endpoint(*, websocket: WebSocket, token: str):
     await websocket.accept()
     full_user.state.connections += 1
     mg.subscribe(websocket, full_user)
-    await mg.send_join(websocket, room)
+    if room is not None:
+        await mg.send_join(websocket, room)
     try:
         while True:
             data = await websocket.receive_text()

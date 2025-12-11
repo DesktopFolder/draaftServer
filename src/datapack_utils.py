@@ -46,6 +46,22 @@ def setup_datapack_caching():
         _generate_datapack('fake-pack-id-2', '321', 'Jane', d, RoomConfig())
 
 
+ANNOTATIONS_CACHE = {}
+def _load_cached_manifest_data():
+    from os import listdir, path
+    import json
+    ANNOTATIONS_SOURCE = "resources/annotations/"
+    for filename in listdir(ANNOTATIONS_SOURCE):
+        loc = path.join(ANNOTATIONS_SOURCE, filename)
+        manifest_data = json.load(open(loc))
+        for m in manifest_data:
+            seed = m['seed']
+            annotations = m['annotations']
+            ANNOTATIONS_CACHE[seed] = annotations
+            LOG('Added annotations for seed:', seed)
+_load_cached_manifest_data()
+
+
 def _apply_manifest(loc: str, state: RoomState, features: list[Datapack]):
     from os import makedirs
     from os.path import dirname, join
@@ -73,6 +89,15 @@ def _apply_manifest(loc: str, state: RoomState, features: list[Datapack]):
         SEED_ANNOTATIONS[ow].merge_overworld(manifest)
     else:
         print('No overworld annotations for seed', ow)
+
+    LOG('Checking for annotations for ns/ow:', ns, ow)
+    if ns == ow and ns != '0':
+        # look up the seed in our special annotations
+        ano = ANNOTATIONS_CACHE.get(ns)
+        if ano is not None:
+            print('Using custom annotations for seed', ns)
+            manifest['annotations'] = ano
+
     
     with open(join(loc, fn), 'w') as file:
         dump(manifest, file, indent=2)

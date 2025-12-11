@@ -283,8 +283,8 @@ _add_gambit("debris", "Debris, Debris...", [FeatureGranter('DebrisRates'), FileG
 
 # SHELLS / TNT
 SCHELLDULE = "schedule function draaftpack:shell 300s append"
-_add_gambit("tnt", "Exploding Shells", [FileGranter({"data/draaftpack/functions/shell.mcfunction": f"toshellwithyou @a\n{SCHELLDULE}"}), CustomGranter(onload=SCHELLDULE)],
-            "Every five minutes, there is a 50% chance for a shell item to spawn on you / If this does not happen, you spawn a TNT instead")
+_add_gambit("tnt", "Exploding Shells", [FileGranter({"data/draaftpack/functions/shell.mcfunction": f"toshellwithyou @a\n{SCHELLDULE}"}), CustomGranter(onload=f'give {{USERNAME}} nautilus_shell 8\n{SCHELLDULE}')],
+            "You start the game with 8 shells / Every five minutes, there is a 50% chance for a shell to spawn on you / If this does not happen, you spawn a TNT instead")
 
 # LOOT RATES
 _add_gambit("lootrates", "Lucky Fool", [CustomGranter(ontick="effect give {USERNAME} minecraft:luck 3600 0 true\nattribute {USERNAME} minecraft:generic.max_health base set 8"), LuckGranter()], "Almost all loot is doubled / Your max health is 4 (8 points)")
@@ -302,6 +302,8 @@ _add_gambit("hdwgh", "How DID We Get Here?!", [AdvancementGranter(advancement="n
 
 # TODO - test
 _add_gambit("nof3", "Mapful NoF3", [CustomGranter(onload="gamerule reducedDebugInfo true"), FeatureGranter('ShowCoords')], "You are given coordinates to the bastion, fortress, strongholds, and all rare biomes / You cannot use F3 for coordinates")
+
+_add_gambit("greatview", "Poor View", [ItemGranter('totem_of_undying{display:{Name:"\\"Totem of Oxidiot\\""}}'), FeatureGranter('PoorView')], "You are granted a totem of undying / You must do great view twice")
 
 """ Gambit Ideas
 

@@ -1,0 +1,53 @@
+[
+{
+    "seed": 6529656510178204932,
+    "annotations": {
+        "bastion": "x: 0, z: 96",
+        "fortress": "x: -96, z: 64",
+        "strongholds": [
+            "x: 173, z: -96",
+            "x: 15, z: 317",
+            "x: -308, z: -166"
+        ],
+        "mushroom_island": "x: 448, z: -544",
+        "jungle": "x: -1280, z: 1504",
+        "mega_taiga": "x: 2272, z: 1664",
+        "snowy": "x: -320, z: -480",
+        "badlands": "x: 1760, z: 1600"
+    }
+},
+{
+    "seed": 5961921486538410179,
+    "annotations": {
+        "bastion": "x: -96, z: 0",
+        "fortress": "x: 0, z: 32",
+        "strongholds": [
+            "x: -96, z: 275",
+            "x: 313, z: -44",
+            "x: -168, z: -206"
+        ],
+        "mushroom_island": "x: 2368, z: 1024",
+        "jungle": "x: -2848, z: -1024",
+        "mega_taiga": "x: -704, z: 672",
+        "snowy": "x: -2912, z: 2016",
+        "badlands": "x: 896, z: -1376"
+    }
+},
+{
+    "seed": -5101733937536217609,
+    "annotations": {
+        "bastion": "x: -80, z: -80",
+        "fortress": "x: 16, z: -144",
+        "strongholds": [
+            "x: 35, z: 181",
+            "x: -202, z: -70",
+            "x: 171, z: -154"
+        ],
+        "mushroom_island": "x: 224, z: -1728",
+        "jungle": "x: 512, z: -2976",
+        "mega_taiga": "x: -2784, z: -2784",
+        "snowy": "x: -928, z: -608",
+        "badlands": "x: 320, z: 2336"
+    }
+}
+]

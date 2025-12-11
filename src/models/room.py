@@ -87,8 +87,14 @@ class RoomState(BaseModel):
 
     player_advancements: dict[str, set[str]] = dict()
 
-    def start_draft(self):
+    def start_draft(self, o):
         from seeds import get_overworld, get_nether, get_end
+        assert isinstance(o, Room)
+
+        self.overworld_seed = o.config.overworld_seed
+        self.nether_seed = o.config.nether_seed
+        self.end_seed = o.config.end_seed
+
         if self.overworld_seed is None:
             self.overworld_seed = get_overworld()
         if self.nether_seed is None:
@@ -130,7 +136,7 @@ class Room(BaseModel):
         from models.ws import serialize
         from sqlite3 import IntegrityError
 
-        self.state.start_draft()
+        self.state.start_draft(self)
 
         try:
             draft = serialize(Draft.from_players(self.get_players()))
