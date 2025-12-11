@@ -1,7 +1,7 @@
 from fastapi import WebSocket
 from db import PopulatedUser
 
-from models.ws import NON_ADMIN_PLAYER_ACTIONS, ActionError, AdvancementUpdate, PlayerAction, PlayerActionEnum, WebSocketMessage, serialize
+from models.ws import NON_ADMIN_PLAYER_ACTIONS, ActionError, AdvancementUpdate, PositionUpload, PlayerAction, PlayerActionEnum, WebSocketMessage, serialize
 from rooms import get_room_from_code, get_user_room_code
 from utils import LOG
 
@@ -60,6 +60,18 @@ async def handle_advancement(msg: AdvancementUpdate, user: PopulatedUser):
     # Send the update to all players
     await mg.broadcast_room(r, PlayerAdvancementUpdate(uuid=uuid, latest_advancement=a, count=len(l)))
 
+async def handle_position_update(msg: PositionUpload, user: PopulatedUser):
+    from db_utils import into_gaming_player
+    from room_manager import mg
+    from models.ws import PositionUpdate
+    res = into_gaming_player(user)
+    if res is None:
+        return
+    room, _ = res
+    uuid = user.uuid
+    await mg.broadcast_room(room, PositionUpdate(x=msg.x, y=msg.y, z=msg.z, dimension=msg.dimension, room_code=room.code, uuid=uuid))
+    
+
 
 async def handle_websocket_message(websocket: WebSocket, message: WebSocketMessage, user: PopulatedUser):
     msg = message.message
@@ -68,5 +80,7 @@ async def handle_websocket_message(websocket: WebSocket, message: WebSocketMessa
             await handle_playeraction(websocket, msg, user)
         case AdvancementUpdate():
             await handle_advancement(msg, user)
+        case PositionUpload():
+            await handle_position_update(msg, user)
         case _:
             pass
