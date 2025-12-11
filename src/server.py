@@ -88,7 +88,8 @@ PUBLIC_ROUTES = {
     "/",
     "/authenticate",
     "/version",
-    "/dev/becomeuser"
+    "/dev/becomeuser",
+    "/draft/external/draftables",
 }
 if "dev" in sys.argv:
     PUBLIC_ROUTES.add("/docs")

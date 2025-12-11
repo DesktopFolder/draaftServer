@@ -275,7 +275,7 @@ def _add_gambit(
 # Working (?) gambits
 
 # SEALEGS
-_add_gambit("sealegs", "Seasickness", [CustomGranter(onload="effect give {USERNAME} minecraft:nausea 360 0 true\neffect give {USERNAME} minecraft:conduit_power 999999 0 true")], "You have conduit power until you purge effects / You have nausea for 360 seconds")
+_add_gambit("sealegs", "Seasickness", [CustomGranter(onload="effect give {USERNAME} minecraft:poison 600 0 true\neffect give {USERNAME} minecraft:slowness 600 0\neffect give {USERNAME} minecraft:conduit_power 999999 0 true")], "You have conduit power until you purge effects / You have poison and slowness I for 10 minutes")
 
 # DEBRIS / DEBRIS
 RANDOM_SCHEDULE = "schedule function draaftpack:randomitem 10s append"
@@ -713,6 +713,35 @@ async def get_status(request: Request) -> Draft:
 @rt.get("/draftables")
 async def get_draftables() -> tuple[list[DraftPool], dict[str, Draftable], dict[str, Gambit]]:
     return (POOLS, DRAFTABLES, GAMBITABLES)
+
+PREFORMATTED_DRAFTABLES = None
+
+@rt.get("/external/draftables")
+async def get_preformatted_draftables():
+    global PREFORMATTED_DRAFTABLES
+    if PREFORMATTED_DRAFTABLES is None:
+        from models.ws import serialize
+        from json import loads, dumps
+        pools = [loads(serialize(p)) for p in POOLS]
+        draftable_dict = { k: loads(serialize(d)) for k, d in DRAFTABLES.items() }
+        gambits_dict = { k: loads(serialize(g)) for k, g in GAMBITABLES.items() }
+        PREFORMATTED_DRAFTABLES = dumps([ pools, draftable_dict, gambits_dict ]).encode()
+
+    return Response(
+        PREFORMATTED_DRAFTABLES,
+        media_type=JSONResponse.media_type
+    )
+
+
+
+LIVE_STATUS = b"{}"
+@rt.get("/external/livestatus")
+async def get_tournament_game():
+    # TODO
+    return Response(
+            LIVE_STATUS,
+            media_type=JSONResponse.media_type
+            )
 
 
 @rt.get("/download")
