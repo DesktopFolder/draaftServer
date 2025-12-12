@@ -69,7 +69,6 @@ class ActionError(BaseModel):
     variant: Literal['error'] = 'error'
     text: str
 
-
 ADVANCEMENT_REGEX = compile(r'minecraft:(.*)')
 class AdvancementUpdate(BaseModel):
     variant: Literal['AdvancementUpdate'] = 'AdvancementUpdate'
@@ -85,16 +84,31 @@ class AdvancementUpdate(BaseModel):
             return None
         return o
 
-
 class PlayerAdvancementUpdate(BaseModel):
     variant: Literal['PlayerAdvancementUpdate'] = 'PlayerAdvancementUpdate'
     uuid: str # the player that this update is for
     latest_advancement: str # the advancement that caused this update
     count: int # total advancement count
+
+class PositionUpload(BaseModel):
+    variant: Literal['PositionUpload'] = 'PositionUpload'
+    x: float
+    y: float
+    z: float
+    dimension: str
+
+class PositionUpdate(BaseModel):
+    variant: Literal['PositionUpdate'] = 'PositionUpdate'
+    room_code: str
+    uuid: str
+    x: float
+    y: float
+    z: float
+    dimension: str
     
 # Received by the server, so RoomStatus is not valid (we only send those)
 class WebSocketMessage(BaseModel):
-    message: Union[Heartbeat, RoomAction, PlayerAction, AdvancementUpdate] = Field(discriminator='variant')
+    message: Union[Heartbeat, RoomAction, PlayerAction, AdvancementUpdate, PositionUpload] = Field(discriminator='variant')
 
     @staticmethod
     def deserialize(data: str) -> 'WebSocketMessage | None':
