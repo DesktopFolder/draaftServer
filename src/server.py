@@ -89,7 +89,7 @@ PUBLIC_ROUTES = {
     "/authenticate",
     "/version",
     "/dev/becomeuser",
-    "/draft/external/draftables",
+    "/draft/external/draftables"
 }
 if "dev" in sys.argv:
     PUBLIC_ROUTES.add("/docs")
@@ -196,6 +196,15 @@ async def is_authenticated():
 @app.get("/version")
 async def server_version():
     return 1  # Version 1 until public beta
+
+
+@app.get("/otp")
+async def get_otp(request: Request):
+    # Guaranteed to be authenticated
+    user_ip = request.headers.get('cf-connecting-ip')
+
+    if user_ip is None:
+        return 
 
 
 async def handle_room_rejoin(
