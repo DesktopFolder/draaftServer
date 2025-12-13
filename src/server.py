@@ -440,6 +440,9 @@ async def configure_room(request: Request, payload: Any = Body(None)):
         LOG("Got weird type", type(payload), "for /room/configure")
         return
 
+    if not r.admin_owned():
+        pass # TODO.
+
     new_config, changed_keys = r.config.merge_config(payload)
 
     rooms.update_config(code=r.code, config=serialize(new_config))

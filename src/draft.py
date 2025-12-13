@@ -278,8 +278,8 @@ def _add_gambit(
 _add_gambit("sealegs", "Seasickness", [CustomGranter(onload="effect give {USERNAME} minecraft:poison 600 0 true\neffect give {USERNAME} minecraft:slowness 600 0\neffect give {USERNAME} minecraft:conduit_power 999999 0 true")], "You have conduit power until you purge effects / You have poison and slowness I for 10 minutes")
 
 # DEBRIS / DEBRIS
-RANDOM_SCHEDULE = "schedule function draaftpack:randomitem 10s append"
-_add_gambit("debris", "Debris, Debris...", [FeatureGranter('DebrisRates'), FileGranter({"data/draaftpack/functions/randomitem.mcfunction": f"junkitem @a\n{RANDOM_SCHEDULE}"}), CustomGranter(onload=RANDOM_SCHEDULE)], "Your debris rates are extremely high / You are randomly granted junk items every 10 seconds")
+RANDOM_SCHEDULE = "schedule function draaftpack:randomitem 20s append"
+_add_gambit("debris", "Debris, Debris...", [FeatureGranter('DebrisRates'), FileGranter({"data/draaftpack/functions/randomitem.mcfunction": f"junkitem @a\n{RANDOM_SCHEDULE}"}), CustomGranter(onload=RANDOM_SCHEDULE)], "Your debris rates are extremely high / You are randomly granted junk items every 20 seconds")
 
 # SHELLS / TNT
 SCHELLDULE = "schedule function draaftpack:shell 300s append"
@@ -805,7 +805,7 @@ async def update_gambit(request: Request, key: str, value: bool):
     if (key in user_gambits) == value:
         return # They already enabled/disabled it :) We're gucci famerino
 
-    if value and len(user_gambits) >= int(room.config.max_gambits): # being set to true
+    if value and len(user_gambits) >= int((room.config.max_gambits or '10000')): # being set to true
         raise HTTPException(status_code=403, detail='You have picked the maximum number of gambits already.')
 
     draft.set_gambit(user.uuid, key, value)

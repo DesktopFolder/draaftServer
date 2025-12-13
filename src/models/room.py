@@ -8,6 +8,15 @@ from draft import Draft
 from utils import LOG
 
 
+# These players are, if they create a room, allowed to mark it
+# as a tournament room (ie. tracked live, in theory)
+ADMINS = set(['5d831a52730a4b4dadb7d1ea69617f3e', # DesktopFolder
+              'f41c16957a9c4b0cbd2277a7e28c37a6', # PacManMVC
+              '9038803187de426fbc4eea42e19c68ef', # me_nx
+              '810ad7db704a46039dd3eaacd2908553', # Memerson
+          ])
+
+
 class RoomJoinState(str, Enum):
     created = "created"
     rejoined = "rejoined"
@@ -61,6 +70,8 @@ class RoomConfig(BaseModel):
 
     restrict_players: list[str] = list()
 
+    # If true, generate a live game JSON definition after draft completion
+    live_game: bool = False
 
     def merge_config(self, other_config: dict) -> tuple[Self, set[str]]:
         import json
@@ -116,6 +127,9 @@ class Room(BaseModel):
     config: RoomConfig
     draft: None | Draft = None
     state: RoomState
+
+    def admin_owned(self) -> bool:
+        return self.admin in ADMINS
 
     def drafting(self) -> bool:
         return self.draft is not None and not self.draft.complete
