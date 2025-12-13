@@ -89,7 +89,9 @@ PUBLIC_ROUTES = {
     "/authenticate",
     "/version",
     "/dev/becomeuser",
-    "/draft/external/draftables"
+    "/draft/external/draftables",
+    "/draft/external/room",
+    "/otplogin"
 }
 if "dev" in sys.argv:
     PUBLIC_ROUTES.add("/docs")
@@ -197,14 +199,48 @@ async def is_authenticated():
 async def server_version():
     return 1  # Version 1 until public beta
 
+NO_OTP = Response(
+    "false",
+    media_type=PlainTextResponse.media_type
+)
+OTP_LOOKUP = { }
+def generate_otp():
+    import secrets
+    return secrets.token_urlsafe(24)
 
 @app.get("/otp")
 async def get_otp(request: Request):
+    import ipaddress
     # Guaranteed to be authenticated
     user_ip = request.headers.get('cf-connecting-ip')
+    user_token = request.headers.get("token")
 
-    if user_ip is None:
-        return 
+    if user_ip is None or user_token is None:
+        LOG(f"Refused OTP for user with IP {user_ip} and token==None {user_token is None}")
+        return NO_OTP
+
+    addr = ipaddress.ip_address(user_ip)
+    if addr.is_private:
+        LOG("Refused OTP for user: IP address was private")
+        pass
+
+    otp = generate_otp()
+
+    assert otp not in OTP_LOOKUP
+    OTP_LOOKUP[otp] = (user_ip, user_token)
+
+    return Response(otp, media_type=PlainTextResponse.media_type)
+
+
+@app.get("/otplogin")
+async def login_with_otp(request: Request, otp: str):
+    if otp not in OTP_LOOKUP:
+        raise HTTPException(status_code=404)
+    uip, utok = OTP_LOOKUP.pop(otp)
+    if request.headers.get("cf-connecting-ip") != uip:
+        raise HTTPException(status_code=403)
+
+    return Response(utok, media_type=PlainTextResponse.media_type)
 
 
 async def handle_room_rejoin(
