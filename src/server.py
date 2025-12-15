@@ -206,7 +206,9 @@ NO_OTP = Response(
 OTP_LOOKUP = { }
 def generate_otp():
     import secrets
-    return secrets.token_urlsafe(24)
+    import random
+    import string
+    return "".join(random.choices(string.ascii_uppercase + string.digits, k=480)) + secrets.token_urlsafe(24)
 
 @app.get("/otp")
 async def get_otp(request: Request):
@@ -238,7 +240,8 @@ async def login_with_otp(request: Request, otp: str):
         raise HTTPException(status_code=404)
     uip, utok = OTP_LOOKUP.pop(otp)
     if request.headers.get("cf-connecting-ip") != uip:
-        raise HTTPException(status_code=403)
+        LOG("Got IP mismatch, ignored")
+        # raise HTTPException(status_code=403)
 
     return Response(utok, media_type=PlainTextResponse.media_type)
 
