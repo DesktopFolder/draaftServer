@@ -2,6 +2,7 @@ from random import choice
 import time
 from typing import Any, Callable, Coroutine
 from datapack_utils import setup_datapack_caching
+import asyncio
 
 import jwt
 from fastapi import (
@@ -204,15 +205,33 @@ NO_OTP = Response(
     media_type=PlainTextResponse.media_type
 )
 OTP_LOOKUP = { }
+OTP_PQ = [ ]
 def generate_otp():
     import secrets
     import random
     import string
     return "".join(random.choices(string.ascii_uppercase + string.digits, k=480)) + secrets.token_urlsafe(24)
 
+async def clear_task():
+    import time
+    while True:
+        now: float = time.time()
+        while OTP_PQ:
+            ts, otp = OTP_PQ[0]
+            if now - 30 < ts:
+                # has not been 30s yet
+                break
+            OTP_PQ.pop(0)
+            if otp in OTP_LOOKUP:
+                OTP_LOOKUP.pop(otp)
+        await asyncio.sleep(30)
+
+asyncio.create_task(clear_task())
+
 @app.get("/otp")
 async def get_otp(request: Request):
     import ipaddress
+    import time
     # Guaranteed to be authenticated
     user_ip = request.headers.get('cf-connecting-ip')
     user_token = request.headers.get("token")
@@ -230,6 +249,7 @@ async def get_otp(request: Request):
 
     assert otp not in OTP_LOOKUP
     OTP_LOOKUP[otp] = (user_ip, user_token)
+    OTP_PQ.append((time.time(), otp))
 
     return Response(otp, media_type=PlainTextResponse.media_type)
 
