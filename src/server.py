@@ -226,10 +226,14 @@ async def clear_task():
                 OTP_LOOKUP.pop(otp)
         await asyncio.sleep(30)
 
-asyncio.create_task(clear_task())
+CLEAR_TASK = None
 
 @app.get("/otp")
 async def get_otp(request: Request):
+    global CLEAR_TASK
+    if CLEAR_TASK is None:
+        CLEAR_TASK = asyncio.create_task(clear_task())
+
     import ipaddress
     import time
     # Guaranteed to be authenticated
