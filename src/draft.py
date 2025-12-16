@@ -275,7 +275,7 @@ def _add_gambit(
 # Working (?) gambits
 
 # SEALEGS
-_add_gambit("sealegs", "Seasickness", [CustomGranter(onload="effect give {USERNAME} minecraft:poison 600 0 true\neffect give {USERNAME} minecraft:slowness 600 0\neffect give {USERNAME} minecraft:conduit_power 999999 0 true")], "You have conduit power until you purge effects / You have poison and slowness I for 10 minutes")
+_add_gambit("sealegs", "Seasickness", [CustomGranter(onload="effect give {USERNAME} minecraft:slowness 600 1\neffect give {USERNAME} minecraft:conduit_power 999999 0 true")], "You have conduit power until you purge effects / You have slowness II for 10 minutes")
 
 # DEBRIS / DEBRIS
 RANDOM_SCHEDULE = "schedule function draaftpack:randomitem 20s append"
