@@ -15,6 +15,55 @@ else:
     LOG = nolog
 
 
+UUID_TO_USERNAME = dict()
+USERNAME_TO_UUID = dict()
+def associate_username(uuid: str, username: str):
+    UUID_TO_USERNAME[uuid] = username
+    USERNAME_TO_UUID[username.lower()] = uuid
+
+def to_username(uuid: str) -> str | None:
+    return UUID_TO_USERNAME.get(uuid)
+
+def to_uuid(username: str) -> str | None:
+    return USERNAME_TO_UUID.get(username.lower())
+
+def lookup_user(identifier: str) -> dict[str, str]:
+    if identifier in UUID_TO_USERNAME:
+        uuid = identifier
+        username = UUID_TO_USERNAME[identifier]
+    elif identifier.lower() in USERNAME_TO_UUID:
+        username = identifier
+        uuid = USERNAME_TO_UUID[identifier.lower()]
+    else:
+        return { "error": "not found" }
+    return { "username": username, "uuid": uuid }
+
+def cache_usernames():
+    import json
+    import shutil
+    to_dump = {
+        "USERNAME_TO_UUID": USERNAME_TO_UUID,
+        "UUID_TO_USERNAME": UUID_TO_USERNAME,
+    }
+    with open(".tmp.cache", "w") as file:
+        json.dump(to_dump, file)
+
+    # Do an atomic move
+    shutil.move(".tmp.cache", "usernames.json")
+
+def load_usernames():
+    global UUID_TO_USERNAME
+    global USERNAME_TO_UUID
+    import json
+    try:
+        with open("usernames.json") as file:
+            data = json.load(file)
+            UUID_TO_USERNAME = data["UUID_TO_USERNAME"]
+            USERNAME_TO_UUID = data["USERNAME_TO_UUID"]
+    except:
+        pass
+load_usernames()
+
 class IndentLog:
     def __call__(self, *args, **kwargs):
         LOG(" ", *args, **kwargs)

@@ -148,6 +148,7 @@ if DEV_MODE_NO_AUTHENTICATE:
     async def authenticate_no_auth(
         uuid: str | None = None, username: str | None = None
     ) -> AuthenticationResult:
+        from utils import associate_username
         if uuid is None:
             # Look, it's simple and easy
             uuid = "uuid1a52730a4b4dadb7d1ea6" + rooms.generate_code()
@@ -161,6 +162,8 @@ if DEV_MODE_NO_AUTHENTICATE:
             "iat": int(time.time()),
             "exp": int(time.time()) + 60 * 60 * 24,  # 24 hours expiry
         }
+        
+        associate_username(uuid=uuid, username=username)
 
         token = jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
         # add user to db if not exists
@@ -171,6 +174,7 @@ else:
 
     @app.post("/authenticate")
     async def authenticate(mi: MojangInfo) -> AuthenticationResult:
+        from utils import associate_username
         result = await validate_mojang_session(mi.username, mi.serverID)
         if not result["success"]:
             return AuthenticationFailure(message=result["error"])
@@ -184,6 +188,8 @@ else:
             "iat": int(time.time()),
             "exp": int(time.time()) + 60 * 60 * 24,  # 24 hours expiry
         }
+
+        associate_username(uuid=resp_data["id"], username=resp_data["name"])
 
         token = jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
         # add user to db if not exists
@@ -214,8 +220,17 @@ def generate_otp():
 
 async def clear_task():
     import time
+    from utils import cache_usernames
+    last_schedule = time.time()
     while True:
         now: float = time.time()
+
+        # Scheduling.
+
+        # Per five minutes.
+        if now > (last_schedule + (60 * 5)):
+            cache_usernames()
+
         while OTP_PQ:
             ts, otp = OTP_PQ[0]
             if now - 30 < ts:
@@ -268,6 +283,12 @@ async def login_with_otp(request: Request, otp: str):
         # raise HTTPException(status_code=403)
 
     return Response(utok, media_type=PlainTextResponse.media_type)
+
+
+@app.get("/lookup/{useridentifier}")
+async def lookup_user(useridentifier: str):
+    from utils import lookup_user
+    return lookup_user(useridentifier)
 
 
 async def handle_room_rejoin(
