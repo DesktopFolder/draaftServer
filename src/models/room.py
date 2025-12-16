@@ -49,7 +49,7 @@ def check_type(k, v, data):
         return False
     if not isinstance(k, str):
         return False
-    if (k.endswith('seed') or k in INTS) and (not isinstance(v, str) or re.match(r'^-?\d*$', v) is None):
+    if (k.endswith('seed') or k in INTS) and (not isinstance(v, str) or re.match(r'^-?\d+$', v) is None):
         return False
     if k in OPTIONALS:
         return v is None or isinstance(v, OPTIONALS[k])
