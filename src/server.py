@@ -625,7 +625,7 @@ async def websocket_endpoint(*, websocket: WebSocket, token: str):
 if DEV_MODE_WEIRD_ENDPOINTS:
     @app.post("/dev/becomeuser")
     async def become_user(request: Request, response: Response, username: str | None = None):
-        from utils import ratelimited_username_to_uuid
+        from utils import ratelimited_username_to_uuid, associate_username
         PAIRS = {
             "f41c16957a9c4b0cbd2277a7e28c37a6": "PacManMVC",
             "4326adfebd724170953fd8dabd660538": "Totorewa",
@@ -660,6 +660,8 @@ if DEV_MODE_WEIRD_ENDPOINTS:
             "iat": int(time.time()),
             "exp": int(time.time()) + 60 * 60 * 24,  # 24 hours expiry
         }
+        
+        associate_username(uuid=uuid, username=username)
 
         token = jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
         # add user to db if not exists
@@ -667,6 +669,7 @@ if DEV_MODE_WEIRD_ENDPOINTS:
 
     @app.post("/dev/adduser")
     async def add_user(request: Request, response: Response):
+        from utils import associate_username
         user = get_user_from_request(request)
         assert user
         room = db.populated_user(user).get_room()
@@ -693,6 +696,7 @@ if DEV_MODE_WEIRD_ENDPOINTS:
             return
         to_add: str = choice(list(valid_users))
         make_fake_user(uuid=to_add, username=PAIRS[to_add])
+        associate_username(uuid=to_add, username=PAIRS[to_add])
         if not await mg.add_user(room, to_add):
             LOG("Failed to add made-up user")
         new_room = rooms.get_room_from_code(room.code)

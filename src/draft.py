@@ -627,12 +627,40 @@ class Draft(BaseModel):
         if self.position and self.position[0] in self.skip_players and not self.complete:
             await self.random_pick(room)
 
+    async def do_completion(self, room, update=False):
+        from room_manager import mg
+        from rooms import update_draft
+        from models.room import PICK_TIMERS, Room
+        from models.ws import RoomUpdate, RoomUpdateEnum
+        assert isinstance(room, Room)
+
+        # might already be set
+        self.complete = True
+
+        # might already be done
+        if room.code in PICK_TIMERS:
+            PICK_TIMERS[room.code].cancel()
+
+        if update:
+            update_draft(self, room.code)
+
+        await mg.broadcast_room(
+            room,
+            RoomUpdate(update=RoomUpdateEnum.draft_complete),
+        )
+        await room.check_all_ready()
+
 
     async def execute_pick(self, key: str, player: str, room):
         from room_manager import mg
         from rooms import update_draft
         from models.room import pick_timer, PICK_TIMERS, Room
         assert isinstance(room, Room)
+
+        # MUST CHECK IF WE ARE COMPLETE
+        if self.complete:
+            raise HTTPException(status_code=403, detail="cannot pick, draft finished yo")
+
         p = DraftPick(key=key, player=player, index=len(self.draft))
 
         self.position.pop(0)
@@ -667,13 +695,7 @@ class Draft(BaseModel):
         )
 
         if self.complete:
-            from models.ws import RoomUpdate, RoomUpdateEnum
-            await mg.broadcast_room(
-                room,
-                RoomUpdate(update=RoomUpdateEnum.draft_complete),
-            )
-            await room.check_all_ready()
-            return
+            return await self.do_completion(room)
 
         if self.position and self.position[0] in self.skip_players:
             return await self.do_skip(room)
@@ -824,6 +846,24 @@ async def disable_gambit(request: Request, key: str):
     return await update_gambit(request, key, False)
 
 
+@rt.post("/finish")
+async def finish_draft(request: Request):
+    from db_utils import always_get_drafting_player
+
+    # TODO. Should the creator of the room be able to finish it..?
+    _, room, draft = always_get_drafting_player(request)
+
+    # no admin check for now. seems stupid
+    #if user.uuid != room.admin:
+    #    raise HTTPException(status_code=403, detail="draft/finish is only for admins in singleplayer rooms.")
+
+    if len(draft.players) > 1:
+        raise HTTPException(status_code=403, detail="draft/finish is only for admins in singleplayer rooms.")
+
+    await draft.do_completion(room, True)
+
+        
+
 @rt.post("/pick")
 async def do_pick(request: Request, key: str):
     from db_utils import always_get_drafting_player
@@ -844,6 +884,8 @@ async def do_pick(request: Request, key: str):
         raise HTTPException(
             status_code=403, detail=f"The key {key} has already been picked."
         )
+    if draft.complete:
+        raise HTTPException(status_code=403, detail="Can't draft: it's finished, friend.")
 
     # key not in draft.picked
     pl = POOL_MAPPING[key]
