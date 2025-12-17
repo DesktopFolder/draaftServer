@@ -279,7 +279,7 @@ def _add_gambit(
 # Working (?) gambits
 
 # SEALEGS
-_add_gambit("sealegs", "Seasickness", [CustomGranter(onload="effect give {USERNAME} minecraft:slowness 600 1\neffect give {USERNAME} minecraft:conduit_power 999999 0 true")], "You have conduit power until you purge effects / You have slowness II for 10 minutes")
+_add_gambit("sealegs", "Seasickness", [CustomGranter(onload="effect give {USERNAME} minecraft:slowness 600 1\neffect give {USERNAME} minecraft:conduit_power 999999 0")], "You have conduit power until you purge effects / You have slowness II for 10 minutes")
 
 # DEBRIS / DEBRIS
 RANDOM_SCHEDULE = "schedule function draaftpack:randomitem 20s append"
@@ -291,7 +291,7 @@ _add_gambit("tnt", "Exploding Shells", [FileGranter({"data/draaftpack/functions/
             "You start the game with 8 shells / Every five minutes, there is a 50% chance for a shell to spawn on you / If this does not happen, you spawn a TNT instead")
 
 # LOOT RATES
-_add_gambit("lootrates", "Lucky Fool", [CustomGranter(ontick="effect give {USERNAME} minecraft:luck 3600 0 true\nattribute {USERNAME} minecraft:generic.max_health base set 10"), LuckGranter()], "Almost all loot is doubled / Your max health is halved")
+_add_gambit("lootrates", "Lucky Fool", [CustomGranter(ontick="effect give {USERNAME} minecraft:luck 3600 0\nattribute {USERNAME} minecraft:generic.max_health base set 10"), LuckGranter()], "Almost all loot is doubled / Your max health is halved")
 
 # ALL ENCHANTED
 _add_gambit("enchants", "Miner's Delight", [FeatureGranter('AllEnchanted'), AdvancementGranter("story/enchant_item")], "All tools are enchanted with optimal enchantments at all times / The maximum level for all enchants (except piercing & drafted items) is reduced to 1/2 their max (rounded up)")
@@ -459,7 +459,7 @@ _add_advancement(key="two_by_two", image="golden_carrot.png", advs=["husbandry/b
 _add_advancement(key="monsters_hunted", image="diamond_sword.png", advs=["adventure/kill_all_mobs"])
 _add_advancement(key="a_balanced_diet", image="apple.png", advs=["husbandry/balanced_diet"])
 
-_add_draftable(Draftable.basic(key="fireres", image="fire_resistance.png", description="Grants permanent Fire Resistance.", name="Fire Resistance"), datapack=[CustomGranter(ontick="effect give {USERNAME} minecraft:fire_resistance 3600 0 true")])
+_add_draftable(Draftable.basic(key="fireres", image="fire_resistance.png", description="Grants permanent Fire Resistance.", name="Fire Resistance"), datapack=[CustomGranter(ontick="effect give {USERNAME} minecraft:fire_resistance 3600 0")])
 
 _add_multi(key="leads", image="lead.png", gens=[ItemGranter("lead", 23), AdvancementGranter(advancement="adventure/kill_all_mobs", criteria="slime")])
 
