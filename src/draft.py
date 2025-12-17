@@ -853,6 +853,9 @@ async def finish_draft(request: Request):
     # TODO. Should the creator of the room be able to finish it..?
     _, room, draft = always_get_drafting_player(request)
 
+    if draft.complete:
+        raise HTTPException(status_code=403, detail="draft/finish cannot be done once the draft is complete!")
+
     # no admin check for now. seems stupid
     #if user.uuid != room.admin:
     #    raise HTTPException(status_code=403, detail="draft/finish is only for admins in singleplayer rooms.")
