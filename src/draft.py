@@ -94,6 +94,7 @@ def basic_prettify(string: str, title: bool = True):
         return res.title()
     return res
 def prettify_advancement(advancement: str):
+    advancement = advancement.removeprefix("minecraft:")
     if advancement in PRETTY_ADVANCEMENTS:
         return PRETTY_ADVANCEMENTS[advancement]
     return basic_prettify(advancement)
@@ -124,7 +125,10 @@ class AdvancementGranter(Datapack):
 
     def build(self, user: str) -> str:
         user = self.player or user
-        crit = "" if self.criteria is None else f" {self.prefix}:{self.criteria}"
+        cprefix = self.prefix + ":"
+        if "balanced_diet" in self.specifier:
+            cprefix = ""
+        crit = "" if self.criteria is None else f" {cprefix}{self.criteria}"
         return f"advancement grant {user} {self.specifier} {self.prefix}:{self.advancement}{crit}"
 
     @override
@@ -290,7 +294,7 @@ _add_gambit("tnt", "Exploding Shells", [FileGranter({"data/draaftpack/functions/
 _add_gambit("lootrates", "Lucky Fool", [CustomGranter(ontick="effect give {USERNAME} minecraft:luck 3600 0 true\nattribute {USERNAME} minecraft:generic.max_health base set 10"), LuckGranter()], "Almost all loot is doubled / Your max health is halved")
 
 # ALL ENCHANTED
-_add_gambit("enchants", "Miner's Delight", [FeatureGranter('AllEnchanted')], "All tools are enchanted with optimal enchantments at all times / The maximum level for all enchants (except piercing & drafted items) is reduced to 1")
+_add_gambit("enchants", "Miner's Delight", [FeatureGranter('AllEnchanted'), AdvancementGranter("story/enchant_item")], "All tools are enchanted with optimal enchantments at all times / The maximum level for all enchants (except piercing & drafted items) is reduced to 1/2 their max (rounded up)")
 
 # DANGEROUS PEARLS
 _add_gambit("pearls", "Pearling Dangerously", [FeatureGranter('DangerousPearls')], "Ender pearls deal no damage to you and have no cooldown / Your fall damage is multiplied by 3")
@@ -401,7 +405,7 @@ _add_advancement(
                 "jungle",
             ],
         ),
-        ("husbandry/bred_all_animals", ["minecraft:panda", "minecraft:ocelot"]),
+        ("husbandry/bred_all_animals", ["panda", "ocelot"]),
         ("husbandry/balanced_diet", ["melon_slice", "cookie"]),
     ],
     advancement=None,
