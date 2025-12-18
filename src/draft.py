@@ -638,6 +638,9 @@ class Draft(BaseModel):
         from models.ws import RoomUpdate, RoomUpdateEnum
         assert isinstance(room, Room)
 
+        if self.sent_complete:
+            return
+
         # might already be set
         self.complete = True
 
@@ -652,6 +655,11 @@ class Draft(BaseModel):
             room,
             RoomUpdate(update=RoomUpdateEnum.draft_complete),
         )
+
+        self.sent_complete = True
+        # Always update here
+        update_draft(self, room.code)
+
         await room.check_all_ready()
 
 
@@ -699,6 +707,8 @@ class Draft(BaseModel):
         )
 
         if self.complete:
+            if room.config.admin_starts_game:
+                return # not through this :)
             return await self.do_completion(room)
 
         if self.position and self.position[0] in self.skip_players:
@@ -716,7 +726,12 @@ class Draft(BaseModel):
     position: list[str] = list()  # Current set of draft picks
     next_positions: list[str] = list()  # next set of draft picks
     picked: set[str] = set()
+
+    # Is the draft itself complete
     complete: bool = False
+    # Have we sent the "create world" message yet (RoomUpdateEnum.draft_complete)
+    # It's a bit unclear.
+    sent_complete: bool = False
 
     gambits: dict[str, set[GambitKey]] = dict()
 
@@ -852,12 +867,12 @@ async def disable_gambit(request: Request, key: str):
 
 @rt.post("/finish")
 async def finish_draft(request: Request):
-    from db_utils import always_get_drafting_player
+    from db_utils import always_get_drafting_user
 
     # TODO. Should the creator of the room be able to finish it..?
-    _, room, draft = always_get_drafting_player(request)
+    user, room, draft = always_get_drafting_user(request)
 
-    if draft.complete:
+    if draft.sent_complete:
         raise HTTPException(status_code=403, detail="draft/finish cannot be done once the draft is complete!")
 
     # no admin check for now. seems stupid
@@ -865,7 +880,14 @@ async def finish_draft(request: Request):
     #    raise HTTPException(status_code=403, detail="draft/finish is only for admins in singleplayer rooms.")
 
     if len(draft.players) > 1:
-        raise HTTPException(status_code=403, detail="draft/finish is only for admins in singleplayer rooms.")
+        if room.config.admin_starts_game:
+            if room.admin != user.uuid:
+                raise HTTPException(status_code=403, detail="non admins cannot finish multiplayer rooms")
+        else:
+            raise HTTPException(status_code=403, detail="draft/finish is only for admins in singleplayer rooms.")
+    
+    if user.uuid not in draft.players and user.uuid != room.admin:
+        raise HTTPException(status_code=403, detail="non admins cannot finish multiplayer rooms")
 
     await draft.do_completion(room, True)
 

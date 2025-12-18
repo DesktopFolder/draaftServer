@@ -25,6 +25,17 @@ def always_get_drafting_player(request) -> tuple[PopulatedUser, Room, Draft]:
         raise HTTPException(status_code=403, detail=f"{u.uuid} is not a player for room {r.code}")
     return (u, r, r.draft)
 
+def always_get_drafting_user(request) -> tuple[PopulatedUser, Room, Draft]:
+    # Gets a user, room, and draft IFF the user is a player in the draft
+    # okay, technically does not check if the draft is complete
+    u = always_get_populated_user_from_request(request)
+    r = u.get_room()
+    if r is None:
+        raise HTTPException(status_code=404, detail="Could not get room for user.")
+    if r.draft is None:
+        raise HTTPException(status_code=404, detail=f"Could not get draft for room {r.code}")
+    return (u, r, r.draft)
+
 def always_get_gaming_player(request) -> tuple[PopulatedUser, Room, Draft, RoomState]:
     u, r, d = always_get_drafting_player(request)
     if not d.complete:
