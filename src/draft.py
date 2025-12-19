@@ -126,7 +126,7 @@ class AdvancementGranter(Datapack):
     def build(self, user: str) -> str:
         user = self.player or user
         cprefix = self.prefix + ":"
-        if "balanced_diet" in self.specifier:
+        if "balanced_diet" in self.advancement:
             cprefix = ""
         crit = "" if self.criteria is None else f" {cprefix}{self.criteria}"
         return f"advancement grant {user} {self.specifier} {self.prefix}:{self.advancement}{crit}"
