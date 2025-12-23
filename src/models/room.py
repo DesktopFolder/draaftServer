@@ -76,6 +76,9 @@ class RoomConfig(BaseModel):
     # If true, require that the draft is finished specifically through /draft/finish
     admin_starts_game: bool = False
 
+    # If true, it's an OQ submission
+    open_qualifier_submission: bool = False
+
     def merge_config(self, other_config: dict) -> tuple[Self, set[str]]:
         import json
         from models.ws import serialize
