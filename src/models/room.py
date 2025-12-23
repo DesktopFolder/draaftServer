@@ -103,9 +103,11 @@ class RoomState(BaseModel):
     end_seed: str | None = None
 
     player_advancements: dict[str, set[str]] = dict()
+    hit_80_at: dict[str, float] = dict()
 
     ready_players: set[str] = set()
     has_sent_start: bool = False
+    start_sent_at: float | None = None
 
     def start_draft(self, o):
         from seeds import get_overworld, get_nether, get_end
@@ -170,6 +172,8 @@ class Room(BaseModel):
                     return
         LOG(f'Sending game start to room {self.code}')
         self.state.has_sent_start = True
+        import time
+        self.state.start_sent_at = time.time()
 
         # update first. I guess we might crash. but whatever.
         state = serialize(self.state)
