@@ -145,7 +145,7 @@ class Room(BaseModel):
 
     def start_timer(self):
         import asyncio
-        if not self.config.enforce_timer:
+        if not self.config.enforce_timer or self.config.open_qualifier_submission:
             return
         asyncio.create_task(pick_timer(self, 10))
 

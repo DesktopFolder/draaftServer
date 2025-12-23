@@ -70,6 +70,11 @@ class DraftPool(BaseModel):
 
         for k in self.contains:
             POOL_MAPPING[k] = self
+
+    def oq_pick_count(self):
+        # e.g. 5 -> 2, 6 -> 3
+        return len(self.contains) - 3
+
     name: AutoName
 
     # Draftables (keys)
@@ -923,7 +928,7 @@ async def do_pick(request: Request, key: str):
     for pk in draft.draft:
         if POOL_MAPPING[pk.key] == pl and pk.player == user.uuid:
             player_pool_picks += 1
-            if player_pool_picks >= picks_per_pool:
+            if player_pool_picks >= picks_per_pool or (room.config.open_qualifier_submission and player_pool_picks >= pl.oq_pick_count()):
                 raise HTTPException(
                     status_code=403, detail=f"Player has already picked the maximum number of picks for pool {pl.name.full_name}")
 
