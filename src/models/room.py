@@ -115,11 +115,11 @@ class RoomState(BaseModel):
         self.nether_seed = o.config.nether_seed
         self.end_seed = o.config.end_seed
 
-        if self.overworld_seed is None:
+        if self.overworld_seed is None or o.config.open_qualifier_submission:
             self.overworld_seed = get_overworld()
-        if self.nether_seed is None:
+        if self.nether_seed is None or o.config.open_qualifier_submission:
             self.nether_seed = get_nether()
-        if self.end_seed is None:
+        if self.end_seed is None or o.config.open_qualifier_submission:
             self.end_seed = get_end()
 
 
