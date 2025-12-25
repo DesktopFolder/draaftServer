@@ -304,15 +304,19 @@ _add_gambit("enchants", "Miner's Delight", [FeatureGranter('AllEnchanted'), Adva
 # DANGEROUS PEARLS
 _add_gambit("pearls", "Pearling Dangerously", [FeatureGranter('DangerousPearls')], "Ender pearls deal no damage to you and have no cooldown / Your fall damage is multiplied by 3")
 
-# TODO GAMBITS
-
-# TODO - test
+# HOW DID WE GET HERE
 _add_gambit("hdwgh", "How DID We Get Here?!", [AdvancementGranter(advancement="nether/all_effects"), FeatureGranter('NoInventory')], "You are granted the advancement \"How Did We Get Here\" / Your main inventory slots are removed (offhand, armour and hotbar remain)")
 
-# TODO - test
+# MAPFUL NOF3
 _add_gambit("nof3", "Mapful NoF3", [CustomGranter(onload="gamerule reducedDebugInfo true"), FeatureGranter('ShowCoords')], "You are given coordinates to the bastion, fortress, strongholds, and all rare biomes / You cannot use F3 for coordinates")
 
+# POOR VIEW
 _add_gambit("greatview", "Poor View", [ItemGranter('totem_of_undying{display:{Name:"\\"Totem of Oxidiot\\""}}'), FeatureGranter('PoorView')], "You are granted a totem of undying / You must do great view twice")
+
+# SPLODEY GHASTS
+_add_gambit("ghast", "Splodey Ghasts", [ItemGranter('ghast_spawn_egg'), FeatureGranter('SplodeyGhasts')], "You are granted a ghast spawn egg / Ghast fireballs are explosion power 7")
+
+# TODO GAMBITS
 
 """ Gambit Ideas
 
