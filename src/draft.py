@@ -296,7 +296,7 @@ _add_gambit("tnt", "Exploding Shells", [FileGranter({"data/draaftpack/functions/
             "You start the game with 8 shells / Every five minutes, there is a 50% chance for a shell to spawn on you / If this does not happen, you spawn a TNT instead")
 
 # LOOT RATES
-_add_gambit("lootrates", "Lucky Fool", [FeatureGranter('DoubledDrops'), CustomGranter(ontick="effect give {USERNAME} minecraft:luck 3600 0\nattribute {USERNAME} minecraft:generic.max_health base set 10"), LuckGranter()], "Almost all loot is doubled / Your max health is halved")
+_add_gambit("lootrates", "Lucky Fool", [FeatureGranter('DoubleDrops'), CustomGranter(ontick="effect give {USERNAME} minecraft:luck 3600 0\nattribute {USERNAME} minecraft:generic.max_health base set 10"), LuckGranter()], "Almost all loot is doubled / Your max health is halved")
 
 # ALL ENCHANTED
 _add_gambit("enchants", "Miner's Delight", [FeatureGranter('AllEnchanted'), AdvancementGranter("story/enchant_item")], "ALL tools and weapons are enchanted with optimal enchantments at all times / The maximum level for all enchants (except piercing & drafted items) is reduced to 50% their max (rounded up)")
