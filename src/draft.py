@@ -308,7 +308,7 @@ _add_gambit("pearls", "Pearling Dangerously", [FeatureGranter('DangerousPearls')
 _add_gambit("hdwgh", "How DID We Get Here?!", [AdvancementGranter(advancement="nether/all_effects"), FeatureGranter('NoInventory')], "You are granted the advancement \"How Did We Get Here\" / Your main inventory slots are removed (offhand, armour and hotbar remain)")
 
 # MAPFUL NOF3
-_add_gambit("nof3", "Mapful NoF3", [CustomGranter(onload="gamerule reducedDebugInfo true"), FeatureGranter('ShowCoords')], "You are given coordinates to the bastion, fortress, strongholds, and all rare biomes / You cannot use F3 for coordinates")
+_add_gambit("nof3", "Mapful NoF3", [CustomGranter(onload="gamerule reducedDebugInfo true"), FeatureGranter('ShowCoords')], "You are given coordinates to the bastion, fortress, strongholds, and all rare biomes / You cannot use F3 for coordinates (Y and O values still show)")
 
 # POOR VIEW
 _add_gambit("greatview", "Poor View", [ItemGranter('totem_of_undying{display:{Name:"\\"Totem of Oxidiot\\""}}'), FeatureGranter('PoorView')], "You are granted a totem of undying / You must do great view twice")
