@@ -337,6 +337,16 @@ if date.today().day >= 1 and date.today().month == 12:
                                                     ], {'coal{display:{Name:"\\"be better.\\""}}': "Naughty!", "__default": "Nice :)"}
                                               ),
                                              ], "Get a surprise if you've been nice! / Only coal if you've been naughty...")
+elif date.today().month == 1:
+    _add_gambit("seasonal", "New Year's Festivities", [RandomItemGranter([
+        ('firework_rocket{Fireworks:{Explosions:[{Type:4,Colors:[I;16351261]},{Type:2,Trail:1b,Colors:[I;16701501]}]}}', 2),
+        ('firework_rocket{Fireworks:{Explosions:[{Type:3,Flicker:1b,Trail:1b,Colors:[I;8439583]}]}}', 1),
+        ('firework_rocket{Fireworks:{Flight:2,Explosions:[{Type:1,Flicker:1b,Trail:1b,Colors:[I;13061821,8991416]},{Colors:[I;1481884],FadeColors:[I;1481884]}]}}', 6),
+        ('firework_rocket{Fireworks:{Flight:1,Explosions:[{Type:1,Flicker:1b,Trail:1b,Colors:[I;13061821,8991416]},{Colors:[I;1481884],FadeColors:[I;1481884]}]}}', 3),
+        ('firework_rocket{Fireworks:{Flight:1,Explosions:[{Type:2,Flicker:1b,Trail:1b,Colors:[I;16701501,16719176]},{Colors:[I;16351261],FadeColors:[I;14046741]}]}}', 5),
+                                                    ], {"__default": "Happy New Year!"}
+                                              ),
+                                             ], "Happy New Year!")
 
 
 def _add_draftable(d: Draftable, datapack: None | list[Datapack] = None):
