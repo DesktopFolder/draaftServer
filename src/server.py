@@ -50,10 +50,16 @@ from utils import get_user_from_request, validate_mojang_session, LOG, persisten
 import sys
 from room_manager import mg, handle_client_metadata
 from draft import rt
-from game import rt as game_router
+from lb import rt as lb_rt
+from game import insert_test_completions, autoload_completions
 
 setup_sqlite()
 setup_datapack_caching()
+autoload_completions()
+
+if 'dev' in sys.argv:
+    LOG("Inserting test completions (dev mode)")
+    insert_test_completions()
 
 JWT_SECRET = persistent_token(32, "JWT_SECRET")
 JWT_ALGORITHM = "HS256"
@@ -72,7 +78,7 @@ if DEV_MODE_NO_AUTHENTICATE and "dev" not in sys.argv:
 
 app = FastAPI()
 app.include_router(rt)
-app.include_router(game_router)
+app.include_router(lb_rt)
 
 ################## Middlewares #####################
 
@@ -92,6 +98,7 @@ PUBLIC_ROUTES = {
     "/dev/becomeuser",
     "/draft/external/draftables",
     "/draft/external/room",
+    "/lb/external/oq1",
     "/otplogin"
 }
 if "dev" in sys.argv:

@@ -21,6 +21,16 @@ def associate_username(uuid: str, username: str):
     UUID_TO_USERNAME[uuid] = username
     USERNAME_TO_UUID[username.lower()] = uuid
 
+
+def random_username():
+    from random import choice
+    starters = ["Pac", "Folder", "Menx", "Memerson", "Totorewa", "Feinberg", "Oxidiot", "CroPro", "Snakezy", "Ludwig"]
+    enders = ["Fan", "Follower", "Hater", "73", "1972", "TheWinner", "Champ", "Yarr", "Coal", "MCSR", "MC", "Ranked"]
+    return (choice(starters) + choice(enders))[0:16]
+
+def associate_uuid_to_random_username(uuid: str):
+    associate_username(uuid, random_username())
+
 def to_username(uuid: str) -> str | None:
     return UUID_TO_USERNAME.get(uuid)
 
@@ -134,3 +144,12 @@ def persistent_token(length: int, name: str):
     res = secrets.token_urlsafe(length)
     open(loc, 'w').write(res)
     return res
+
+
+def serialize_list(l: list) -> str:
+    # TODO - should generically serialize any list
+    # right now assumed list[BaseModel]
+    from models.ws import serialize
+    from json import loads, dumps
+    # serialize object to string -> reload as dictionary -> place in list -> dump list
+    return dumps([loads(serialize(o)) for o in l])

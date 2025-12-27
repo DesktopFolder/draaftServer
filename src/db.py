@@ -37,8 +37,28 @@ sql = LockableSqliteConnection("./db/draaft.db")
 
 # Setup things
 
+def do_migrations():
+    VERSION_KEY = "db.version"
+    db_version = int(lookup_metadata(VERSION_KEY) or "0")
+    LOG(f"Found database version: {db_version}")
+
+    if db_version < 1:
+        LOG("-> Database version was < 1. Performing migration to version 1.")
+        with sql as cur:
+            cur.execute("ALTER TABLE users ADD COLUMN twitch char(32);")
+        set_metadata(VERSION_KEY, "1")
+
+    if db_version < 2:
+        LOG("-> Database version was < 2. Performing migration to version 2.")
+        with sql as cur:
+            cur.execute("ALTER TABLE completions ADD COLUMN tag char(32);")
+        set_metadata(VERSION_KEY, "2")
+
 
 def setup_sqlite():
+    # Creates a "version-0 compatible" instantiation of each table.
+    # Probably worth investigating how to do this better later on.
+    # For now, even if you boot this on a fresh machine, we'll do migrations after just creating the tables.
     with sql as cur:
         cur.execute("""
             CREATE TABLE IF NOT EXISTS rooms (
@@ -48,6 +68,13 @@ def setup_sqlite():
                 config VARCHAR DEFAULT '{}',
                 draft VARCHAR,
                 state VARCHAR DEFAULT '{}'
+            );
+        """)
+
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS metadata (
+                key TEXT PRIMARY KEY UNIQUE,
+                value TEXT
             );
         """)
 
@@ -70,6 +97,17 @@ def setup_sqlite():
         """)
 
         cur.execute("""
+            CREATE TABLE IF NOT EXISTS completions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                uuid char(32) NOT NULL,
+                username char(20) NOT NULL,
+                room char(7) NOT NULL,
+                start float NOT NULL,
+                end float NOT NULL
+            );
+        """)
+
+        cur.execute("""
             CREATE INDEX IF NOT EXISTS idx_rooms_code ON rooms(code);
         """)
 
@@ -83,10 +121,32 @@ def setup_sqlite():
             CREATE INDEX IF NOT EXISTS idx_status_uuid ON status(uuid);
         """)
 
+    do_migrations()
+
 
 if __name__ == "__main__":
     setup_sqlite()
 
+
+def lookup_metadata(key: str) -> str | None:
+    with sql as cur:
+        res = cur.execute("SELECT value FROM metadata WHERE key = ?", (key,)).fetchall()
+
+    if not res:
+        return None
+
+    return res[0][0]
+
+def set_metadata(key: str, value: str):
+    exists = lookup_metadata(key) is not None
+    if exists:
+        with sql as cur:
+            LOG(f"Updating metadata: {key} = {value}")
+            cur.execute("UPDATE metadata SET value = ? WHERE key = ?", (value, key))
+    else:
+        with sql as cur:
+            LOG(f"Adding metadata: {key} = {value}")
+            cur.execute("INSERT INTO metadata (key, value) VALUES (?,?)", (key, value))
 
 def insert_user(username: str, uuid: str) -> bool:
     try:
@@ -131,7 +191,7 @@ def get_user(username: str, uuid: str) -> LoggedInUser | None:
         if not insert_user(username, uuid):
             return None
         return get_user(username, uuid)
-    _, uuid, stored_username, room_code, pronouns = res[0]
+    _, uuid, stored_username, room_code, pronouns, twitch = res[0]
     if stored_username != username:
         with sql as cur:
             cur.execute("UPDATE users SET username = ? WHERE uuid = ?", (username, uuid))

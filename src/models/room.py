@@ -136,6 +136,30 @@ class Room(BaseModel):
     draft: None | Draft = None
     state: RoomState
 
+    @staticmethod
+    def make_fake():
+        from rooms import generate_code
+        import random
+        import string
+        from utils import associate_uuid_to_random_username
+        admin = "".join(random.choices(string.ascii_lowercase + string.digits, k=32))
+        associate_uuid_to_random_username(admin)
+        code = generate_code()
+        members = {admin}
+        return Room(code=code, members=members, admin=admin, config=RoomConfig(), state=RoomState())
+
+    def register_completion(self, uuid: str):
+        import time
+        self.state.hit_80_at[uuid] = time.time()
+
+        # Register an actual completion object in the DB if we consider
+        # this to be a non-cheated run. We have pretty limited anticheat
+        # so we're just going to do a few basic checks.
+        # But thinking about it, we should probably actually do this in
+        # another function anyways, becauase it's too messy here...
+        from game import register_completion
+        register_completion(self, uuid)
+
     def admin_owned(self) -> bool:
         return self.admin in ADMINS
 

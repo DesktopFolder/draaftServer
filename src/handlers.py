@@ -59,9 +59,8 @@ async def handle_advancement(msg: AdvancementUpdate, user: PopulatedUser):
     # Potentially this player is now finished
     if len(l) >= 80:
         if uuid not in r.state.hit_80_at:
-            import time
             LOG(f"Player {uuid} hit 80 advancements!")
-            r.state.hit_80_at[uuid] = time.time()
+            r.register_completion(uuid)
 
     # Save into the DB
     r.save_state()
