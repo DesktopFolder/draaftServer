@@ -13,7 +13,7 @@ class LoggedInUser(BaseModel):
 
 class UserSettings(BaseModel):
     pronouns: str | None = None
-
+    twitch_username: str | None = None
 
 # This could be moved into a mojang model later so we don't need a generic models file
 class MojangInfo(BaseModel):

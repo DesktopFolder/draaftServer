@@ -516,6 +516,10 @@ async def set_user_settings(request: Request, s: UserSettings):
         with db.sql as cur:
             cur.execute("UPDATE users SET pronouns = ? WHERE uuid = ?", (s.pronouns[:12], u.uuid))
 
+    if s.twitch_username is not None:
+        with db.sql as cur:
+            cur.execute("UPDATE users SET twitch = ? WHERE uuid = ?", (s.twitch_username[:25], u.uuid))
+
 
 @app.post("/room/configure")
 async def configure_room(request: Request, payload: Any = Body(None)):
