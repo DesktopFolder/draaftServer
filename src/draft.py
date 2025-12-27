@@ -334,7 +334,7 @@ if date.today().day >= 1 and date.today().month == 12:
                                                     ('cooked_salmon{display:{Name:"\\"Holiday meal!\\""}}', 2),
                                                     ('spruce_sapling{display:{Name:"\\"Christmas Trees!\\""}}', 7),
                                                     ('leather_helmet{display:{color:11546150,Name:"\\"Santa\'s Hat\\""}}', 1)
-                                                    ], {'coal{display:{Name:"\\"be better.\\""}}': "Naughty!", "__default": "Nice :)"}
+                                                    ], {'coal{display:{Name:"\\"ludwig\\""}}': "Naughty!", "__default": "Nice :)"}
                                               ),
                                              ], "Get a surprise if you've been nice! / Only coal if you've been naughty...")
 elif date.today().month == 1:
