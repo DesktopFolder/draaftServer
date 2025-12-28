@@ -55,6 +55,7 @@ def do_migrations():
         set_metadata(VERSION_KEY, "2")
 
 
+
 def setup_sqlite():
     # Creates a "version-0 compatible" instantiation of each table.
     # Probably worth investigating how to do this better later on.
@@ -85,6 +86,14 @@ def setup_sqlite():
                 username char(32) NOT NULL,
                 room_code char(7) references rooms(code),
                 pronouns char(12)
+            );
+        """)
+
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS oqboons (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                uuid char(32) NOT NULL,
+                oq char(32) NOT NULL
             );
         """)
 

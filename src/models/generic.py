@@ -19,3 +19,8 @@ class UserSettings(BaseModel):
 class MojangInfo(BaseModel):
     serverID: str
     username: str
+
+class OQInfo(BaseModel):
+    oq_attempts: int
+    max_oq_attempts: int
+    finished_oq: bool

@@ -33,6 +33,13 @@ def create(uuid: str) -> str:
             continue
 
 
+def get_draft_from_line(line: tuple):
+    return deserialize(line[4], Draft)
+def get_config_from_line(line: tuple):
+    return deserialize(line[3], RoomConfig)
+def get_state_from_line(line: tuple):
+    return deserialize(line[5], RoomState)
+
 def get_room_from_code(room_code: str) -> Room | None:
     from db import sql
 
@@ -50,12 +57,12 @@ def get_room_from_code(room_code: str) -> Room | None:
         ).fetchall()
     members = set(m[0] for m in members_res)
     room_code = str(room_code) if room_code is not None else ""
-    rc = deserialize(res[0][3], RoomConfig)
+    rc = get_config_from_line(res[0])
     if rc is None:
         print("ERROR: Could not deserialize room config:", res[0][3])
         rc = RoomConfig()
-    dr = deserialize(res[0][4], Draft)
-    roomstate = deserialize(res[0][5], RoomState)
+    dr = get_draft_from_line(res[0])
+    roomstate = get_state_from_line(res[0])
     assert roomstate is not None
     return Room(code=room_code, members=members, admin=admin, config=rc, draft=dr, state=roomstate)
 
@@ -104,6 +111,7 @@ def remove_room_member(uuid: str, allow_no_admin: bool = False) -> bool:
 
     """
     If a room member is the admin, we must destroy the room.
+    -> why?
     """
     rm = get_room_from_uuid(uuid)
     if rm is None:
@@ -112,8 +120,10 @@ def remove_room_member(uuid: str, allow_no_admin: bool = False) -> bool:
         if rm.admin == uuid and not allow_no_admin:
             uuids = list(rm.members)
             # Destroy the room
-            with sql as cur:
-                cur.execute("DELETE FROM rooms WHERE code = ?", (rm.code,))
+            # We CANNOT do this once we've sent start!
+            if not rm.state.has_sent_start:
+                with sql as cur:
+                    cur.execute("DELETE FROM rooms WHERE code = ?", (rm.code,))
         else:
             uuids = [uuid]
         fmt = ",".join("?" * len(uuids))
@@ -133,8 +143,9 @@ def destroy_room(code: str):
     try:
         uuids = list(rm.members)
         # Destroy the room
-        with sql as cur:
-            cur.execute("DELETE FROM rooms WHERE code = ?", (rm.code,))
+        if not rm.state.has_sent_start:
+            with sql as cur:
+                cur.execute("DELETE FROM rooms WHERE code = ?", (rm.code,))
         # Remove all its members
         fmt = ",".join("?" * len(uuids))
         with sql as cur:

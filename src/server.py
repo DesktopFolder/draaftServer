@@ -36,7 +36,7 @@ from models.api import (
     AuthenticationSuccess,
     api_error,
 )
-from models.generic import LoggedInUser, MojangInfo, UserSettings
+from models.generic import LoggedInUser, MojangInfo, OQInfo, UserSettings
 from models.room import Room, RoomIdentifier, RoomJoinError, RoomJoinState, RoomResult
 from models.ws import (
     PlayerActionEnum,
@@ -570,6 +570,43 @@ async def commence_room(request: Request):
     r.set_drafting()
     await mg.broadcast_room(r, RoomUpdate(update=RoomUpdateEnum.commenced, config=r.config))
     r.start_timer()
+
+
+@app.get("/checkoq")
+async def check_oq(request: Request) -> OQInfo:
+    from db import sql
+    from rooms import get_config_from_line, get_draft_from_line, get_state_from_line
+    user = get_user_from_request(request)
+    if user is None:
+        raise HTTPException(status_code=500, detail="you don't exist")
+
+    # wip lol
+    maxoq = 5
+    theiroq = 0
+
+    with sql as cur:
+        maxoq += len(cur.execute("SELECT * FROM oqboons WHERE uuid = ? AND oq = 'oq1'", (user.uuid,)).fetchall())
+
+        res = cur.execute("SELECT * FROM rooms WHERE instr(draft,?) > 0", (user.uuid,)).fetchall()
+
+        for r in res:
+            rc = get_config_from_line(r)
+            if rc is None or not rc.open_qualifier_submission:
+                LOG("OQ Check failed: Room config")
+                continue
+            dr = get_draft_from_line(r)
+            if dr is None or user.uuid not in dr.players:
+                LOG("OQ Check failed: Draft")
+                continue
+            rs = get_state_from_line(r)
+            if rs is None or not rs.has_sent_start:
+                LOG("OQ Check failed: No start")
+                continue
+            # otherwise for now let's just increment
+            theiroq += 1
+
+
+    return OQInfo(oq_attempts=theiroq, max_oq_attempts=maxoq, finished_oq=theiroq >= maxoq)
 
 
 @app.get("/user")
