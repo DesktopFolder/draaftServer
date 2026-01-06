@@ -572,6 +572,29 @@ async def commence_room(request: Request):
     r.start_timer()
 
 
+@app.post("/admin/register_completion")
+async def force_register_completion(request: Request, room_id: str, rta_code: str):
+    from db import get_user_from_request
+    from models.room import ADMINS
+    from rooms import get_room_from_code
+    user = get_user_from_request(request)
+    if user is None or user.uuid not in ADMINS:
+        raise HTTPException(status_code=403)
+
+    # Allow force registering a completion.
+    r = get_room_from_code(room_id)
+    if r is None:
+        raise HTTPException(status_code=404)
+
+    start_sent = r.state.start_sent_at
+    if start_sent is None or len(r.state.hit_80_at):
+        # for now we don't handle if we hit 80
+        raise HTTPException(status_code=400)
+
+    # r.register_completion
+    # WIP :) do this later
+
+
 @app.get("/checkoq")
 async def check_oq(request: Request) -> OQInfo:
     from db import sql

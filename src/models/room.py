@@ -148,9 +148,11 @@ class Room(BaseModel):
         members = {admin}
         return Room(code=code, members=members, admin=admin, config=RoomConfig(), state=RoomState())
 
-    def register_completion(self, uuid: str):
-        import time
-        self.state.hit_80_at[uuid] = time.time()
+    def register_completion(self, uuid: str, timestamp: float | None = None):
+        if timestamp is None:
+            import time
+            timestamp = time.time()
+        self.state.hit_80_at[uuid] = timestamp
 
         # Register an actual completion object in the DB if we consider
         # this to be a non-cheated run. We have pretty limited anticheat

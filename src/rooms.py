@@ -55,6 +55,9 @@ def get_room_from_code(room_code: str) -> Room | None:
         members_res = cur.execute(
             "SELECT uuid FROM users WHERE room_code = ?", (room_code,)
         ).fetchall()
+
+    # So because of how this normalization level works, we can't assume the
+    # room has any players in it. Just a head's up on that.
     members = set(m[0] for m in members_res)
     room_code = str(room_code) if room_code is not None else ""
     rc = get_config_from_line(res[0])
