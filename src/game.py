@@ -17,7 +17,7 @@ OQ_TAGS = {
     # time.time(), it's just a timestamp, it's UTC already.
     # Here, we're getting timestamps OUT OF date strings, which do require localization to contextualize.
     # But, they're still ultimately utc timestamps at the end, so they compare with the time.time()s.
-    as_key("26-12-2025 23:59:59", "12-01-2026 00:00:00"): "oq1"
+    as_key("26-12-2025 23:59:59", "14-01-2026 00:00:00"): "oq1"
 }
 
 def to_oq_submission_tag(r: Room):
