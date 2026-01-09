@@ -109,6 +109,8 @@ class RoomState(BaseModel):
     has_sent_start: bool = False
     start_sent_at: float | None = None
 
+    high_quality_seed: bool | None = None
+
     def start_draft(self, o):
         from seeds import get_overworld, get_nether, get_end
         assert isinstance(o, Room)
@@ -118,7 +120,8 @@ class RoomState(BaseModel):
         self.end_seed = o.config.end_seed
 
         if self.overworld_seed is None or o.config.open_qualifier_submission:
-            self.overworld_seed = get_overworld()
+            # Request a high quality overworld if it's an OQ submission
+            self.overworld_seed, self.high_quality_seed = get_overworld(o.config.open_qualifier_submission)
         if self.nether_seed is None or o.config.open_qualifier_submission:
             self.nether_seed = get_nether()
         if self.end_seed is None or o.config.open_qualifier_submission:

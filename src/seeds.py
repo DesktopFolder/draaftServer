@@ -2,6 +2,7 @@ from collections import defaultdict
 from random import choice
 import re
 from typing import Generator
+from os.path import expanduser
 
 _settings = """
 {
@@ -122,13 +123,16 @@ def chunk_annotation(xz: tuple[str, str]):
     x, z = [int(c) * 16 for c in xz]
     return basic_annotation((x, z))
 
-def load(s: str, tag: str):
+def load(s: str, tag: str, minimum: int = 0):
     res = s.split(' ', 1)
     seed = int(res[0])
 
     if seed == 3583022600183591551:
         print(res)
         raise RuntimeError
+
+    if seed < minimum:
+        return None
 
     annotations = res[1:] 
     # we need to add some annotations haha
@@ -149,16 +153,21 @@ def load(s: str, tag: str):
 
     return seed
 
-def load_seedlist(file, tag: str, ignore=False):
+MAX_KNOWN_OW = 0
+def load_seedlist(file, tag: str, ignore=False, minimum: bool = False) -> list[int]:
+    global MAX_KNOWN_OW
     from random import shuffle
     if not ignore:
-        sl = [load(s, tag) for s in file if len(s) > 2 and not s.startswith('#')]
+        sl = [load(s, tag, minimum = MAX_KNOWN_OW) for s in file if len(s) > 2 and not s.startswith('#')]
+        sl = [s for s in sl if s is not None]
+        if sl:
+            MAX_KNOWN_OW = sl[-1]
         shuffle(sl)
         return sl
     else:
         for s in file:
             if len(s) > 2 and not s.startswith('#'):
-                load(s, tag)
+                load(s, tag, minimum=MAX_KNOWN_OW)
         return []
 
 with open('.seeds/overworld_seeds.txt') as file:
@@ -171,8 +180,56 @@ with open('.seeds/nether_seeds.txt') as file:
 with open('.seeds/end_seeds.txt') as file:
     END_SEEDS: list[int] = load_seedlist(file, 'end')
 
-def get_overworld():
-    return str(choice(OVERWORLD_SEEDS))
+def load_unknown_overworld_seeds() -> set[int]:
+    from os.path import isfile
+    sh_ano = expanduser("~/data/draaft/overworld_seeds_strongholds.txt")
+    norm = expanduser("~/data/draaft/overworld_seeds.txt")
+    if not isfile(sh_ano) or not isfile(norm):
+        print("Warning: Not loading high quality seed lists (not found).")
+        return set()
+    seeds, anos = load_seedlist(norm, "overworld", minimum=True), load_seedlist(sh_ano, "stronghold", True, minimum=True)
+    return set(seeds)
+
+GENERATED_OW_LIST = expanduser("~/data/draaft/generated_overworld_seeds.txt")
+def load_generated_overworld_seeds() -> set[int]:
+    from os.path import isfile
+    if not isfile(GENERATED_OW_LIST):
+        print("Warning: Not loading list of previously generated ow seeds (not found).")
+        return set()
+    return set([int(x.strip()) for x in open(GENERATED_OW_LIST).readlines() if not x.startswith("#")])
+
+# actually, just any seed lol
+UNUSED_OW_SEEDS = load_unknown_overworld_seeds()
+GENERATED_OW_SEEDS = load_generated_overworld_seeds()
+
+# returns True for high quality seed, False for low quality seed
+def get_overworld(request_quality=False, allow_retry=True) -> tuple[str, bool]:
+    # Overworld seeds are much harder to filter for.
+    # So our 'good overworld seeds list' is much shorter.
+    valid_ow = UNUSED_OW_SEEDS - GENERATED_OW_SEEDS
+
+    if allow_retry and (not valid_ow or (not request_quality and len(valid_ow) < 100)):
+        # try this 1 more time after reloading unused seeds
+        UNUSED_OW_SEEDS.update(load_unknown_overworld_seeds())
+        return get_overworld(request_quality=request_quality, allow_retry=False)
+
+    if not valid_ow:
+        # sucks to suck. return old seed. sad! :/
+        return str(choice(OVERWORLD_SEEDS)), False
+
+    if not request_quality and (len(valid_ow) < 100):
+        # you snooze you lose. oh well :/
+        return str(choice(OVERWORLD_SEEDS)), False
+
+    # otherwise you get a high quality seed. isn't that slick?
+    your_epic_seed = str(min(valid_ow))
+
+    with open(GENERATED_OW_LIST, 'a') as file:
+        file.write(your_epic_seed)
+        file.write("\n")
+    
+    return your_epic_seed, True
+
 def get_nether():
     return str(choice(NETHER_SEEDS))
 def get_end():
