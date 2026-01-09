@@ -158,7 +158,7 @@ def load_seedlist(file, tag: str, ignore=False, minimum: bool = False) -> list[i
     global MAX_KNOWN_OW
     from random import shuffle
     if not ignore:
-        sl = [load(s, tag, minimum = MAX_KNOWN_OW) for s in file if len(s) > 2 and not s.startswith('#')]
+        sl = [load(s, tag, minimum = MAX_KNOWN_OW if minimum else 0) for s in file if len(s) > 2 and not s.startswith('#')]
         sl = [s for s in sl if s is not None]
         if sl:
             MAX_KNOWN_OW = sl[-1]
@@ -167,7 +167,7 @@ def load_seedlist(file, tag: str, ignore=False, minimum: bool = False) -> list[i
     else:
         for s in file:
             if len(s) > 2 and not s.startswith('#'):
-                load(s, tag, minimum=MAX_KNOWN_OW)
+                load(s, tag, minimum=MAX_KNOWN_OW if minimum else 0)
         return []
 
 with open('.seeds/overworld_seeds.txt') as file:
