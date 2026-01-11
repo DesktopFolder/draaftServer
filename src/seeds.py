@@ -154,13 +154,13 @@ def load(s: str, tag: str, minimum: int = 0):
     return seed
 
 MAX_KNOWN_OW = 0
-def load_seedlist(file, tag: str, ignore=False, minimum: bool = False) -> list[int]:
+def load_seedlist(file, tag: str, ignore=False, minimum: bool = False, no_increment: bool = True) -> list[int]:
     global MAX_KNOWN_OW
     from random import shuffle
     if not ignore:
         sl = [load(s, tag, minimum = MAX_KNOWN_OW if minimum else 0) for s in file if len(s) > 2 and not s.startswith('#')]
         sl = [s for s in sl if s is not None]
-        if sl:
+        if sl and not no_increment:
             MAX_KNOWN_OW = sl[-1]
         shuffle(sl)
         return sl
@@ -185,12 +185,13 @@ def load_unknown_overworld_seeds() -> set[int]:
     sh_ano = expanduser("~/data/draaft/overworld_seeds_strongholds.txt")
     norm = expanduser("~/data/draaft/overworld_seeds.txt")
     if not isfile(sh_ano) or not isfile(norm):
-        print("Warning: Not loading high quality seed lists (not found).")
+        print("(!!!) Error: Not loading high quality seed lists (not found).")
         return set()
-    seeds, anos = load_seedlist(norm, "overworld", minimum=True), load_seedlist(sh_ano, "stronghold", True, minimum=True)
+    seeds, anos = load_seedlist(norm, "overworld", minimum=True, no_increment=False), load_seedlist(sh_ano, "stronghold", True, minimum=True, no_increment=False)
     return set(seeds)
 
 GENERATED_OW_LIST = expanduser("~/data/draaft/generated_overworld_seeds.txt")
+print("Using", GENERATED_OW_LIST, "as list of generated overworlds.")
 def load_generated_overworld_seeds() -> set[int]:
     from os.path import isfile
     if not isfile(GENERATED_OW_LIST):
