@@ -1,4 +1,5 @@
 from collections import defaultdict
+from io import FileIO, TextIOWrapper
 from random import choice
 import re
 from typing import Generator
@@ -154,7 +155,7 @@ def load(s: str, tag: str, minimum: int = 0):
     return seed
 
 MAX_KNOWN_OW = 0
-def load_seedlist(file, tag: str, ignore=False, minimum: bool = False) -> list[int]:
+def load_seedlist(file: TextIOWrapper, tag: str, ignore=False, minimum: bool = False) -> list[int]:
     from random import shuffle
     if not ignore:
         sl = [load(s, tag, minimum = MAX_KNOWN_OW if minimum else 0) for s in file if len(s) > 2 and not s.startswith('#')]
@@ -187,8 +188,10 @@ def load_unknown_overworld_seeds() -> set[int]:
         return set()
 
     print("Note: Loading unknown seeds using max unknown seed value of", MAX_KNOWN_OW)
-    seeds = load_seedlist(norm, "overworld", minimum=True)
-    _seed_annotations = load_seedlist(sh_ano, "stronghold", True, minimum=True)
+    with open(norm) as file:
+        seeds = load_seedlist(file, "overworld", minimum=True)
+    with open(sh_ano) as file:
+        _seed_annotations = load_seedlist(file, "stronghold", True, minimum=True)
 
     # Update the maximum known ow seed so we don't uselessly load them in the future
     MAX_KNOWN_OW = max(seeds)
