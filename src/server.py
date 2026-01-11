@@ -604,7 +604,7 @@ async def check_oq(request: Request) -> OQInfo:
         raise HTTPException(status_code=500, detail="you don't exist")
 
     # wip lol
-    maxoq = 5
+    maxoq = 7
     theiroq = 0
 
     with sql as cur:
