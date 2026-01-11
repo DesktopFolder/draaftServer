@@ -185,6 +185,8 @@ def load_unknown_overworld_seeds() -> set[int]:
     if not isfile(sh_ano) or not isfile(norm):
         print("(!!!) Error: Not loading high quality seed lists (not found).")
         return set()
+
+    print("Note: Loading unknown seeds using max unknown seed value of", MAX_KNOWN_OW)
     seeds = load_seedlist(norm, "overworld", minimum=True)
     _seed_annotations = load_seedlist(sh_ano, "stronghold", True, minimum=True)
 
