@@ -154,14 +154,11 @@ def load(s: str, tag: str, minimum: int = 0):
     return seed
 
 MAX_KNOWN_OW = 0
-def load_seedlist(file, tag: str, ignore=False, minimum: bool = False, no_increment: bool = True) -> list[int]:
-    global MAX_KNOWN_OW
+def load_seedlist(file, tag: str, ignore=False, minimum: bool = False) -> list[int]:
     from random import shuffle
     if not ignore:
         sl = [load(s, tag, minimum = MAX_KNOWN_OW if minimum else 0) for s in file if len(s) > 2 and not s.startswith('#')]
         sl = [s for s in sl if s is not None]
-        if sl and not no_increment:
-            MAX_KNOWN_OW = sl[-1]
         shuffle(sl)
         return sl
     else:
@@ -181,13 +178,19 @@ with open('.seeds/end_seeds.txt') as file:
     END_SEEDS: list[int] = load_seedlist(file, 'end')
 
 def load_unknown_overworld_seeds() -> set[int]:
+    global MAX_KNOWN_OW
     from os.path import isfile
     sh_ano = expanduser("~/data/draaft/overworld_seeds_strongholds.txt")
     norm = expanduser("~/data/draaft/overworld_seeds.txt")
     if not isfile(sh_ano) or not isfile(norm):
         print("(!!!) Error: Not loading high quality seed lists (not found).")
         return set()
-    seeds, anos = load_seedlist(norm, "overworld", minimum=True, no_increment=False), load_seedlist(sh_ano, "stronghold", True, minimum=True, no_increment=False)
+    seeds = load_seedlist(norm, "overworld", minimum=True)
+    _seed_annotations = load_seedlist(sh_ano, "stronghold", True, minimum=True)
+
+    # Update the maximum known ow seed so we don't uselessly load them in the future
+    MAX_KNOWN_OW = max(seeds)
+
     return set(seeds)
 
 GENERATED_OW_LIST = expanduser("~/data/draaft/generated_overworld_seeds.txt")
