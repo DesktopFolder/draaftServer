@@ -201,6 +201,8 @@ def load_generated_overworld_seeds() -> set[int]:
 # actually, just any seed lol
 UNUSED_OW_SEEDS = load_unknown_overworld_seeds()
 GENERATED_OW_SEEDS = load_generated_overworld_seeds()
+print("Loaded", len(UNUSED_OW_SEEDS), "raw high-quality seeds and", len(GENERATED_OW_SEEDS), "seeds that cannot be used.")
+print("Note: Usable high quality seed count is", len(UNUSED_OW_SEEDS - GENERATED_OW_SEEDS))
 
 # returns True for high quality seed, False for low quality seed
 def get_overworld(request_quality=False, allow_retry=True) -> tuple[str, bool]:
@@ -208,17 +210,24 @@ def get_overworld(request_quality=False, allow_retry=True) -> tuple[str, bool]:
     # So our 'good overworld seeds list' is much shorter.
     valid_ow = UNUSED_OW_SEEDS - GENERATED_OW_SEEDS
 
-    if allow_retry and (not valid_ow or (not request_quality and len(valid_ow) < 100)):
+    no_ow_left = not valid_ow
+    too_few_ow = (not request_quality) and (len(valid_ow) < 100)
+
+    if allow_retry and (no_ow_left or too_few_ow):
         # try this 1 more time after reloading unused seeds
+        pre_reload = len(UNUSED_OW_SEEDS)
         UNUSED_OW_SEEDS.update(load_unknown_overworld_seeds())
+        print(f"Reloading overworld seeds. Had {pre_reload} seeds pre-reload and {len(UNUSED_OW_SEEDS)} post-reload.")
         return get_overworld(request_quality=request_quality, allow_retry=False)
 
-    if not valid_ow:
+    if no_ow_left:
         # sucks to suck. return old seed. sad! :/
+        print("We have no valid overworld seeds: refusing to generate a high-quality overworld.")
         return str(choice(OVERWORLD_SEEDS)), False
 
-    if not request_quality and (len(valid_ow) < 100):
+    if too_few_ow:
         # you snooze you lose. oh well :/
+        print("We do not have enough valid overworld seeds: refusing to generate a high-quality overworld.")
         return str(choice(OVERWORLD_SEEDS)), False
 
     # otherwise you get a high quality seed. isn't that slick?

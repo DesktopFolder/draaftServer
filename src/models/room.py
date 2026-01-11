@@ -122,6 +122,8 @@ class RoomState(BaseModel):
         if self.overworld_seed is None or o.config.open_qualifier_submission:
             # Request a high quality overworld if it's an OQ submission
             self.overworld_seed, self.high_quality_seed = get_overworld(o.config.open_qualifier_submission)
+            if not self.high_quality_seed:
+                print("Note: Did not receive high quality seed for room:", o.code)
         if self.nether_seed is None or o.config.open_qualifier_submission:
             self.nether_seed = get_nether()
         if self.end_seed is None or o.config.open_qualifier_submission:
