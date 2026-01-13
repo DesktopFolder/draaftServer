@@ -55,6 +55,8 @@ async def handle_advancement(msg: AdvancementUpdate, user: PopulatedUser):
         return
 
     l.add(a)
+    import time
+    r.state.latest_advancement = time.time()
 
     # Potentially this player is now finished
     if len(l) >= 80:

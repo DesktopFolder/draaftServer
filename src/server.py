@@ -298,6 +298,25 @@ async def lookup_user(useridentifier: str):
     return lookup_user(useridentifier)
 
 
+@app.post("/admin/register_completion/{room_id}")
+async def register_completion_manually(request: Request, room_id: str):
+    from rooms import get_room_from_code
+    user = get_user_from_request(request)
+    if user is None:
+        return
+    if user.username != "DesktopFolder":
+        return
+
+    rm = get_room_from_code(room_id)
+    if rm is None:
+        raise HTTPException(status_code=503, detail="Failure: No room.")
+    
+    if rm.state.latest_advancement is None:
+        raise HTTPException(status_code=503, detail="Failure: No latest advancement")
+
+    rm.register_completion(rm.admin, rm.state.latest_advancement)
+
+
 async def handle_room_rejoin(
     user: LoggedInUser, cb: Callable[[], Coroutine[Any, Any, RoomResult]] | None
 ) -> RoomResult | None:

@@ -108,6 +108,7 @@ class RoomState(BaseModel):
     ready_players: set[str] = set()
     has_sent_start: bool = False
     start_sent_at: float | None = None
+    latest_advancement: float | None = None
 
     high_quality_seed: bool | None = None
 
