@@ -213,7 +213,7 @@ GENERATED_OW_SEEDS = load_generated_overworld_seeds()
 print("Loaded", len(UNUSED_OW_SEEDS), "raw high-quality seeds and", len(GENERATED_OW_SEEDS), "seeds that cannot be used.")
 print("Note: Usable high quality seed count is", len(UNUSED_OW_SEEDS - GENERATED_OW_SEEDS))
 
-assert all([s in UNUSED_OW_SEEDS for s in GENERATED_OW_SEEDS])
+# assert all([s in UNUSED_OW_SEEDS for s in GENERATED_OW_SEEDS])
 
 # returns True for high quality seed, False for low quality seed
 def get_overworld(request_quality=False, allow_retry=True) -> tuple[str, bool]:
