@@ -299,7 +299,7 @@ _add_gambit("tnt", "Exploding Shells", [FileGranter({"data/draaftpack/functions/
 _add_gambit("lootrates", "Lucky Fool", [FeatureGranter('DoubleDrops'), CustomGranter(ontick="effect give {USERNAME} minecraft:luck 3600 0\nattribute {USERNAME} minecraft:generic.max_health base set 10"), LuckGranter()], "Almost all loot is doubled / Your max health is halved")
 
 # ALL ENCHANTED
-_add_gambit("enchants", "Miner's Delight", [FeatureGranter('AllEnchanted'), AdvancementGranter("story/enchant_item")], "ALL tools and weapons are enchanted with optimal enchantments at all times / The maximum level for all enchants (except piercing & drafted items) is reduced to 50% their max (rounded up)")
+_add_gambit("enchants", "Miner's Delight", [FeatureGranter('AllEnchanted'), AdvancementGranter("story/enchant_item")], "ALL tools and weapons are enchanted with optimal enchantments at all times / The maximum level for all enchants / (except piercing & drafted items) / is reduced to 50% their max (rounded up)")
 
 # DANGEROUS PEARLS
 _add_gambit("pearls", "Pearling Dangerously", [FeatureGranter('DangerousPearls')], "Ender pearls deal no damage to you and have no cooldown / Your fall damage is multiplied by 3")
@@ -568,6 +568,12 @@ class DraftPickUpdate(DraftPick):
     next_positions: list[str]
 
 
+
+def publish_live_room(room):
+    from draft import set_live_status
+    from models.ws import serialize
+    set_live_status(serialize(room))
+
 class Draft(BaseModel):
     @staticmethod
     def from_players(players: set[str]) -> "Draft":
@@ -680,6 +686,12 @@ class Draft(BaseModel):
         update_draft(self, room.code)
 
         await room.check_all_ready()
+
+        if room.admin in [
+                '5d831a52730a4b4dadb7d1ea69617f3e', # DesktopFolder
+                'f41c16957a9c4b0cbd2277a7e28c37a6' # PacManMVC
+              ]:
+            publish_live_room(room)
 
 
     async def execute_pick(self, key: str, player: str, room):
@@ -802,6 +814,11 @@ async def get_tournament_game():
             LIVE_STATUS,
             media_type=JSONResponse.media_type
             )
+
+
+def set_live_status(room_str: str):
+    global LIVE_STATUS
+    LIVE_STATUS = room_str
 
 
 @rt.get("/download")

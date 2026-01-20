@@ -97,7 +97,9 @@ PUBLIC_ROUTES = {
     "/version",
     "/dev/becomeuser",
     "/draft/external/draftables",
+    "/draft/external/livestatus",
     "/draft/external/room",
+    "/draft/external/live",
     "/lb/external/oq1",
     "/otplogin"
 }
@@ -572,12 +574,16 @@ async def configure_room(request: Request, payload: Any = Body(None)):
     await mg.update_room(r, new_config)
 
 
+@app.get("/external/live")
+async def get_live_room():
+    pass
+
 @app.post("/room/commence")
 async def commence_room(request: Request):
     ad = get_admin_in_unstarted_room(request)
     if ad is None:
         return
-    _, r = ad
+    admin, r = ad
 
     if not r.get_players():
         raise HTTPException(status_code=403, detail=f'Cannot start room {r.code} - no players.')
