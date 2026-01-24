@@ -789,7 +789,8 @@ async def get_draftables() -> tuple[list[DraftPool], dict[str, Draftable], dict[
 PREFORMATTED_DRAFTABLES = None
 
 @rt.get("/external/draftables")
-async def get_preformatted_draftables():
+async def get_preformatted_draftables(request: Request):
+    from visitors import increment
     global PREFORMATTED_DRAFTABLES
     if PREFORMATTED_DRAFTABLES is None:
         from models.ws import serialize
@@ -798,6 +799,8 @@ async def get_preformatted_draftables():
         draftable_dict = { k: loads(serialize(d)) for k, d in DRAFTABLES.items() }
         gambits_dict = { k: loads(serialize(g)) for k, g in GAMBITABLES.items() }
         PREFORMATTED_DRAFTABLES = dumps([ pools, draftable_dict, gambits_dict ]).encode()
+
+    increment(request, "main")
 
     return Response(
         PREFORMATTED_DRAFTABLES,
@@ -808,8 +811,9 @@ async def get_preformatted_draftables():
 
 LIVE_STATUS = b"{}"
 @rt.get("/external/livestatus")
-async def get_tournament_game():
-    # TODO
+async def get_tournament_game(request: Request):
+    from visitors import increment
+    increment(request, "live")
     return Response(
             LIVE_STATUS,
             media_type=JSONResponse.media_type
