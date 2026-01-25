@@ -206,7 +206,7 @@ else:
         return AuthenticationSuccess(token=token)
 
 
-@app.get("service_account")
+@app.get("/service_account")
 async def get_service_account_token(request: Request):
     from db import get_user_from_request
     from models.room import ADMINS
