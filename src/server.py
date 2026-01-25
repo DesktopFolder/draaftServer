@@ -206,6 +206,33 @@ else:
         return AuthenticationSuccess(token=token)
 
 
+@app.get("service_account")
+async def get_service_account_token(request: Request):
+    from db import get_user_from_request
+    from models.room import ADMINS
+
+    # Get the logged in user
+    user = get_user_from_request(request)
+    if user is None or ((user.uuid not in ADMINS) and (not user.uuid.endswith("_serviceaccount"))):
+        raise HTTPException(status_code=403)
+
+    username = user.username + '*'
+    uuid = user.uuid + '_serviceaccount'
+
+    payload = {
+        "username": username,
+        "uuid": uuid,
+        "serverID": 'service-account',
+        "iat": int(time.time()),
+        "exp": int(time.time()) + 60 * 60 * 24 * 30,  # 30 days expiry
+    }
+
+    insert_user(username=username, uuid=uuid)
+    token = jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
+
+    return AuthenticationSuccess(token=token)
+
+
 @app.get("/authenticated")
 async def is_authenticated():
     return True
