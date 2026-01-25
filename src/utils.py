@@ -115,7 +115,7 @@ def get_user_from_request(request) -> LoggedInUser | None:
 
 
 def valid_username(un: str):
-    return re.match(r"^[\w\d_]{2,17}$", un) is not None
+    return re.match(r"^[\w\d_*]{2,18}$", un) is not None
 
 
 def valid_server_id(sid: str):
