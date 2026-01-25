@@ -711,7 +711,10 @@ async def websocket_endpoint(*, websocket: WebSocket, token: str):
     from handlers import handle_websocket_message
 
     LOG("Got a connect / listen call with a websocket")
-    user = token_to_user(token)
+    try:
+        user = token_to_user(token)
+    except:
+        raise HTTPException(status_code=403, detail="Could not validate token for /listen")
     full_user = db.populated_user(user)
     room = full_user.get_room()
     if room is None:
