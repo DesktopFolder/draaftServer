@@ -51,6 +51,7 @@ import sys
 from room_manager import mg, handle_client_metadata
 from draft import rt
 from lb import rt as lb_rt
+from bracket import rt as bk_rt
 from game import insert_test_completions, autoload_completions
 
 setup_sqlite()
@@ -79,6 +80,7 @@ if DEV_MODE_NO_AUTHENTICATE and "dev" not in sys.argv:
 app = FastAPI()
 app.include_router(rt)
 app.include_router(lb_rt)
+app.include_router(bk_rt)
 
 ################## Middlewares #####################
 
@@ -97,6 +99,7 @@ PUBLIC_ROUTES = {
     "/version",
     "/dev/becomeuser",
     "/draft/external/draftables",
+    "/bracket/external/current",
     "/draft/external/livestatus",
     "/draft/external/room",
     "/draft/external/live",
