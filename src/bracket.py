@@ -21,7 +21,7 @@ def auto_participants(p: list[str]):
         pid += 1
     return l
 
-DRAAFT2_PARTICIPANTS = auto_participants(["Snakezy", "Coosh", "Feinberg", "CroPro", "DoyPingu", "dolphinman", "SuperC", "dbowzer"])
+DRAAFT2_PARTICIPANTS = auto_participants(["Snakezy", "Coosh", "Feinberg", "CroPro", "DoyPingu", "dolphinman", "SuperC", "dbowzer", "Oxidiot"])
 
 class StageSettings(BaseModel):
     size: int
