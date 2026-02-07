@@ -572,7 +572,16 @@ class DraftPickUpdate(DraftPick):
 def publish_live_room(room):
     from draft import set_live_status
     from models.ws import serialize
+    from models.room import Room, RoomState
+    assert isinstance(room, Room)
+    st = room.state
+    newst = RoomState.model_copy(st)
+    newst.end_seed = None
+    newst.nether_seed = None
+    newst.overworld_seed = None
+    room.state = newst
     set_live_status(serialize(room))
+    room.state = st
 
 class Draft(BaseModel):
     @staticmethod
