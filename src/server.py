@@ -104,8 +104,7 @@ PUBLIC_ROUTES = {
     "/draft/external/room",
     "/draft/external/live",
     "/lb/external/oq1",
-    "/otplogin",
-    "/lookup/*"
+    "/otplogin"
 }
 if "dev" in sys.argv:
     PUBLIC_ROUTES.add("/docs")
@@ -117,7 +116,7 @@ if "dev" in sys.argv:
 async def check_valid(request: Request, call_next):
     request.state.valid_token = None
 
-    if request.url.path not in PUBLIC_ROUTES:
+    if request.url.path not in PUBLIC_ROUTES and not request.url.path.startswith('/lookup/'):
         token = request.headers.get("token")
         if not token:
             return PlainTextResponse("bad request, sorry mate :/", status_code=403)
