@@ -17,6 +17,7 @@ else:
 
 UUID_TO_USERNAME = dict()
 USERNAME_TO_UUID = dict()
+UUID_TO_PRONOUNS = dict()
 def associate_username(uuid: str, username: str):
     UUID_TO_USERNAME[uuid] = username
     USERNAME_TO_UUID[username.lower()] = uuid
@@ -46,7 +47,7 @@ def lookup_user(identifier: str) -> dict[str, str]:
         uuid = USERNAME_TO_UUID[identifier.lower()]
     else:
         return { "error": "not found" }
-    return { "username": username, "uuid": uuid }
+    return { "username": username, "uuid": uuid, "pronouns": UUID_TO_PRONOUNS.get(uuid, "") }
 
 def cache_usernames():
     import json
@@ -54,6 +55,7 @@ def cache_usernames():
     to_dump = {
         "USERNAME_TO_UUID": USERNAME_TO_UUID,
         "UUID_TO_USERNAME": UUID_TO_USERNAME,
+        "UUID_TO_PRONOUNS": UUID_TO_PRONOUNS,
     }
     with open(".tmp.cache", "w") as file:
         json.dump(to_dump, file)
@@ -64,14 +66,25 @@ def cache_usernames():
 def load_usernames():
     global UUID_TO_USERNAME
     global USERNAME_TO_UUID
+    global UUID_TO_PRONOUNS
     import json
     try:
         with open("usernames.json") as file:
             data = json.load(file)
             UUID_TO_USERNAME = data["UUID_TO_USERNAME"]
             USERNAME_TO_UUID = data["USERNAME_TO_UUID"]
-    except:
-        pass
+
+            # Get pronouns if they exist
+            pronouns = data.get("UUID_TO_PRONOUNS")
+
+            if pronouns is None:
+                from db import get_all_pronouns
+                pronouns = get_all_pronouns()
+
+            UUID_TO_PRONOUNS = pronouns
+    except Exception as e:
+        print('Warning: Error encountered in load_usernames:')
+        print(e)
 load_usernames()
 
 class IndentLog:

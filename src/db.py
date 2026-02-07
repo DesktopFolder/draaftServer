@@ -6,7 +6,6 @@ from models.generic import LoggedInUser
 from typing import Any, DefaultDict
 
 from models.room import Room
-from utils import LOG, IndentLog, get_user_from_request
 import threading
 
 # https://stackoverflow.com/questions/41206800/how-should-i-handle-multiple-threads-accessing-a-sqlite-database-in-python
@@ -40,6 +39,7 @@ sql = LockableSqliteConnection("./db/draaft.db")
 def do_migrations():
     VERSION_KEY = "db.version"
     db_version = int(lookup_metadata(VERSION_KEY) or "0")
+    from utils import LOG, IndentLog, get_user_from_request
     LOG(f"Found database version: {db_version}")
 
     if db_version < 1:
@@ -147,6 +147,7 @@ def lookup_metadata(key: str) -> str | None:
     return res[0][0]
 
 def set_metadata(key: str, value: str):
+    from utils import LOG, IndentLog, get_user_from_request
     exists = lookup_metadata(key) is not None
     if exists:
         with sql as cur:
@@ -158,6 +159,7 @@ def set_metadata(key: str, value: str):
             cur.execute("INSERT INTO metadata (key, value) VALUES (?,?)", (key, value))
 
 def insert_user(username: str, uuid: str) -> bool:
+    from utils import LOG, IndentLog, get_user_from_request
     try:
         with sql as cur:
             cur.execute("INSERT INTO users (uuid, username) VALUES (?,?)",
@@ -171,6 +173,7 @@ def insert_user(username: str, uuid: str) -> bool:
         return False
 
 def insert_update_status(uuid: str, status: str):
+    from utils import LOG, IndentLog, get_user_from_request
     try:
         with sql as cur:
             cur.execute("INSERT INTO status (uuid, status) VALUES (?,?)", (uuid, status))
@@ -205,6 +208,11 @@ def get_user(username: str, uuid: str) -> LoggedInUser | None:
         with sql as cur:
             cur.execute("UPDATE users SET username = ? WHERE uuid = ?", (username, uuid))
     return LoggedInUser(username=username, uuid=uuid, room_code=room_code, status=get_user_status(uuid), pronouns=pronouns)
+
+def get_all_pronouns() -> dict[str, str]:
+    with sql as cur:
+        res = cur.execute("SELECT uuid, pronouns FROM users", ()).fetchall()
+    return { x[0]: x[1] for x in res }
 
 def try_get_user(uuid: str) -> LoggedInUser | None:
     with sql as cur:
@@ -245,6 +253,7 @@ def populated_users(room: Room) -> list[PopulatedUser]:
     return [populated_user(u) for u in l if u is not None]
 
 def get_populated_user_from_request(request) -> PopulatedUser | None:
+    from utils import LOG, IndentLog, get_user_from_request
     u = get_user_from_request(request)
     if u is None:
         return None
@@ -278,6 +287,7 @@ def get_admin_from_request(request) -> tuple[PopulatedUser, Room] | None:
     return (u, r)
 
 def get_admin_in_unstarted_room(request) -> tuple[PopulatedUser, Room] | None:
+    from utils import LOG, IndentLog, get_user_from_request
     IL = IndentLog()
     IL("-- get_admin_in_unstarted_room --")
     ad = get_active_user_from_request(request)

@@ -10,8 +10,6 @@ from datetime import date
 from datapack.datapack import Datapack, FeatureGranter, CustomGranter, LambdaGranter, FileGranter
 from datapack.luck import LuckGranter
 
-from utils import LOG
-
 rt = APIRouter(prefix="/draft")
 
 
@@ -628,6 +626,8 @@ class Draft(BaseModel):
         from collections import defaultdict
         assert isinstance(room, Room)
 
+        from utils import LOG
+
         if not self.position:
             LOG("no position?!")
             return
@@ -783,6 +783,8 @@ class Draft(BaseModel):
 @rt.get("/status")
 async def get_status(request: Request) -> Draft:
     from db import get_started_room
+
+    from utils import LOG
 
     LOG("Getting status of room...")
     ru = get_started_room(request)

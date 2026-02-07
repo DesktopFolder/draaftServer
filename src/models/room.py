@@ -5,7 +5,6 @@ from typing import Self, get_type_hints, Optional
 
 from models.api import APIError
 from draft import Draft
-from utils import LOG
 
 
 # These players are, if they create a room, allowed to mark it
@@ -193,6 +192,7 @@ class Room(BaseModel):
         from models.ws import serialize
         from db import sql
         from models.ws import RoomUpdate, RoomUpdateEnum
+        from utils import LOG
         if self.draft is None or self.state.has_sent_start:
             return
         if not self.draft.complete:
@@ -311,6 +311,7 @@ async def pick_timer(room: Room, extra_seconds: int = 0):
         return
 
     if new_room.draft is None:
+        from utils import LOG
         LOG(f"{new_room} has no draft?!")
         return
     

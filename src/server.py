@@ -326,8 +326,8 @@ async def login_with_otp(request: Request, otp: str):
 
 @app.get("/lookup/{useridentifier}")
 async def lookup_user(useridentifier: str):
-    from utils import lookup_user
-    return lookup_user(useridentifier)
+    from utils import lookup_user as cached_user_lookup
+    return cached_user_lookup(useridentifier)
 
 
 @app.post("/admin/register_completion/{room_id}")
@@ -566,6 +566,8 @@ async def set_user_settings(request: Request, s: UserSettings):
     if s.pronouns is not None:
         with db.sql as cur:
             cur.execute("UPDATE users SET pronouns = ? WHERE uuid = ?", (s.pronouns[:12], u.uuid))
+        from utils import UUID_TO_PRONOUNS
+        UUID_TO_PRONOUNS[u.uuid] = s.pronouns[:12]
 
     if s.twitch_username is not None:
         with db.sql as cur:
