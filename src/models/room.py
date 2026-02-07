@@ -62,7 +62,7 @@ class RoomConfig(BaseModel):
     spectators_get_world: bool = False
 
     enable_gambits: bool = True
-    max_gambits: str = '3'
+    max_gambits: str = '5'
 
     overworld_seed: str | None = None
     nether_seed: str | None = None

@@ -104,7 +104,8 @@ PUBLIC_ROUTES = {
     "/draft/external/room",
     "/draft/external/live",
     "/lb/external/oq1",
-    "/otplogin"
+    "/otplogin",
+    "/lookup"
 }
 if "dev" in sys.argv:
     PUBLIC_ROUTES.add("/docs")
