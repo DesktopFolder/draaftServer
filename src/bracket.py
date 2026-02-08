@@ -1,3 +1,4 @@
+from typing import Literal
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from fastapi import APIRouter, Request, Response
@@ -40,6 +41,7 @@ class Stage(BaseModel):
 class ParticipantResult(BaseModel):
     # forfeit: bool | Literal['_undefined'] # -> undefined
     id: int | None # -> None
+    result: str | Literal['_undefined']
 
 class Match(BaseModel):
     child_count: int
@@ -72,10 +74,33 @@ setup_log()
 
 def create_matches():
     mtr = {"match_id": 0, "number": 1, "round": 0, "cap": 4}
+
+    with open(".bracket-log.json", "r") as file:
+        import json
+        # m1 winner, m2 winner, m3 winner, m4 winner, m5 winner, m6 winner, m7 winner
+        p: list[str | None] = json.load(file)["players"]
+
     def auto_match(p1: str | None, p2: str | None, miter: dict) -> tuple[Match, dict]:
+        mid = miter["match_id"]
+
+        winner = p[mid] if mid < len(p) else None
+        if winner is not None:
+            if winner == p1:
+                res1 = "win"
+                res2 = "loss"
+            elif winner == p2:
+                res1 = "loss"
+                res2 = "win"
+            else:
+                res1 = "_undefined"
+                res2 = "_undefined"
+        else:
+            res1 = "_undefined"
+            res2 = "_undefined"
+
         match = Match(child_count=0, group_id=0, id=miter["match_id"],
-                             opponent1=ParticipantResult(id=as_pid(p1)),
-                             opponent2=ParticipantResult(id=as_pid(p2)),
+                             opponent1=ParticipantResult(id=as_pid(p1), result=res1),
+                             opponent2=ParticipantResult(id=as_pid(p2), result=res2),
                              number=miter["number"], stage_id=0, round_id=miter["round"])
 
         num = miter["number"] + 1
@@ -86,16 +111,12 @@ def create_matches():
             cap = int(cap / 2)
             rnd += 1
 
-        return (match, {"match_id": miter["match_id"] + 1, "number": num, "round": rnd, "cap": cap})
+        return (match, {"match_id": mid + 1, "number": num, "round": rnd, "cap": cap})
 
     m1, mtr = auto_match("Snakezy", "Coosh", mtr)
     m2, mtr = auto_match("dolphinman", "Feinberg", mtr)
     m3, mtr = auto_match("CroPro", "SuperC", mtr)
     m4, mtr = auto_match("dbowzer", "DoyPingu", mtr)
-
-    with open(".bracket-log.json", "r") as file:
-        import json
-        p: list[str | None] = json.load(file)["players"]
 
     s1, mtr = auto_match(p.pop(0), p.pop(0), mtr)
     s2, mtr = auto_match(p.pop(0), p.pop(0), mtr)
