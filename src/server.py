@@ -138,7 +138,7 @@ async def check_valid(request: Request, call_next):
 if "dev" in sys.argv:
     allow_origins = "*"
 else:
-    allow_origins = ("https://disrespec.tech", "https://api.disrespec.tech")
+    allow_origins = ("https://disrespec.tech", "https://api.disrespec.tech", "https://draaft.net", "https://api.draaft.net")
 
 app.add_middleware(
     CORSMiddleware,
