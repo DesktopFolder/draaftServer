@@ -7,3 +7,4 @@ auth/
 testing
 usernames.json
 .bracket-log.json
+.backup
