@@ -8,3 +8,5 @@ testing
 usernames.json
 .bracket-log.json
 .backup
+.visitors.json
+backup.tar.gz
