@@ -184,6 +184,7 @@ class Room(BaseModel):
         if self.config.fully_random:
             # Let's do fully random picks and whatnot haha!
             # First: Randomize the gambits.
+            print(f'Doing fully random for {self.code}')
             self.select_random_gambits()
             
             if self.draft is not None:
