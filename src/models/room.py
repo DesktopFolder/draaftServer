@@ -221,6 +221,7 @@ class Room(BaseModel):
         from random import sample
         gambits = list(GAMBITABLES.keys())
         if self.draft is None:
+            print('draft was none for select_random_gambits')
             return
         for uuid in self.draft.players:
             to_take = sample(gambits, k=min((len(gambits), int((self.config.max_gambits or '10000')))))

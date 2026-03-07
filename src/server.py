@@ -626,7 +626,11 @@ async def commence_room(request: Request):
 
     r.set_drafting()
     await mg.broadcast_room(r, RoomUpdate(update=RoomUpdateEnum.commenced, config=r.config))
-    await r.start_timer()
+    new_room = r.updated()
+    if new_room is None:
+        print('WARNING: ROOM WAS NONE AFTER COMMENCING.')
+    else:
+        await new_room.start_timer()
 
 
 @app.post("/admin/register_completion")
