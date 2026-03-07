@@ -75,6 +75,9 @@ class RoomConfig(BaseModel):
     # If true, require that the draft is finished specifically through /draft/finish
     admin_starts_game: bool = False
 
+    # If true, picks AND gambits are randomized.
+    fully_random: bool = False
+
     # If true, it's an OQ submission
     open_qualifier_submission: bool = False
 
@@ -176,11 +179,55 @@ class Room(BaseModel):
     def playing(self) -> bool:
         return self.draft is not None and self.draft.complete
 
-    def start_timer(self):
+    async def start_timer(self):
         import asyncio
+        if self.config.fully_random:
+            # Let's do fully random picks and whatnot haha!
+            # First: Randomize the gambits.
+            self.select_random_gambits()
+            
+            if self.draft is not None:
+                while not self.draft.complete:
+                    await self.draft.random_pick(self)
+            return
+
         if not self.config.enforce_timer or self.config.open_qualifier_submission:
             return
         asyncio.create_task(pick_timer(self, 10))
+
+    def set_gambit(self, player: str, gambit: str, value: bool = True) -> bool:
+        # returns True if change is made. False otherwise.
+        # value: value to set the gambit to (True = selected).
+        # WARNING: CURRENTLY DOES NOT SAVE TO DB.
+
+        # Require player ID is the player in an active draft.
+        if self.draft is None or player not in self.draft.players:
+            return False
+
+        user_gambits = self.draft.get_gambits(player)
+        if (gambit in user_gambits) == value:
+            return False # Gambit already set to value.
+
+        if value and len(user_gambits) >= int((self.config.max_gambits or '10000')): # being set to true
+            return False # Can't pick more gambits
+
+        self.draft.set_gambit(player, gambit, value)
+        return True # I think this is guaranteed to be correct
+
+    def select_random_gambits(self):
+        from draft import GAMBITABLES
+        from rooms import update_draft
+        from random import sample
+        gambits = list(GAMBITABLES.keys())
+        if self.draft is None:
+            return
+        for uuid in self.draft.players:
+            to_take = sample(gambits, k=min((len(gambits), int((self.config.max_gambits or '10000')))))
+            for t in to_take:
+                if not self.set_gambit(uuid, t):
+                    break
+        # update the internal draft
+        update_draft(self.draft, self.code)
 
     def num_picks(self):
         if self.draft is not None:

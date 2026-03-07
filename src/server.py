@@ -626,7 +626,7 @@ async def commence_room(request: Request):
 
     r.set_drafting()
     await mg.broadcast_room(r, RoomUpdate(update=RoomUpdateEnum.commenced, config=r.config))
-    r.start_timer()
+    await r.start_timer()
 
 
 @app.post("/admin/register_completion")
